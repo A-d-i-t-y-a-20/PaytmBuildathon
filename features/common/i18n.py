@@ -1,0 +1,307 @@
+"""All user-facing text in Hindi (Devanagari) and English. No Streamlit import, so the
+engines can use it too. Usage: T(lang, "key", amt="1,200").
+"""
+LANGS = {"hi": "हिंदी", "en": "English"}
+DEFAULT = "hi"
+
+DAY_SHORT = {"hi": ["सोम", "मंगल", "बुध", "गुरु", "शुक्र", "शनि", "रवि"],
+             "en": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]}
+DAY_LONG = {"hi": ["सोमवार", "मंगलवार", "बुधवार", "गुरुवार", "शुक्रवार", "शनिवार", "रविवार"],
+            "en": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]}
+MONTHS = {"hi": ["जन", "फ़र", "मार्च", "अप्रै", "मई", "जून", "जुला", "अग", "सितं", "अक्टू", "नवं", "दिसं"],
+          "en": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]}
+GOAL_LABELS = {
+    "Diwali": {"hi": "दिवाली", "en": "Diwali"},
+    "Shaadi": {"hi": "शादी", "en": "Wedding"},
+    "Emergency": {"hi": "इमरजेंसी", "en": "Emergency"},
+    "Dukaan": {"hi": "दुकान का सामान", "en": "Shop stock"},
+    "Bas bachat": {"hi": "बस बचत", "en": "Just saving"},
+}
+
+S = {
+    # ---------------- app shell
+    "concept_demo": {"hi": "कॉन्सेप्ट डेमो", "en": "Concept demo"},
+    "concept": {"hi": "कॉन्सेप्ट", "en": "Concept"},
+    "namaste": {"hi": "नमस्ते 🙏", "en": "Namaste 🙏"},
+    "upi_today": {"hi": "आज UPI से आए", "en": "UPI money today"},
+    "upi_today_sub": {"hi": "Paytm Soundbox सेटलमेंट (मॉक)", "en": "Paytm Soundbox settlement (mock)"},
+    "tab_aaj": {"hi": "आज", "en": "Today"},
+    "tab_gullak": {"hi": "गुल्लक", "en": "Gullak"},
+    "tab_grahak": {"hi": "ग्राहक", "en": "Regulars"},
+    "foot_app": {"hi": "कॉन्सेप्ट · मॉक डेटा · कोई असली पैसा या मैसेज नहीं", "en": "Concept · mock data · no real money or messages"},
+
+    # ---------------- gullak: reasons (engine codes)
+    "r_paused": {"hi": "गुल्लक रुका हुआ है", "en": "Gullak is paused"},
+    "r_no_data": {"hi": "आज का डेटा अभी नहीं आया", "en": "Today's data hasn't arrived yet"},
+    "r_slow_day": {"hi": "आज बिक्री कम थी, पैसा आपके पास रखा", "en": "Sales were low today, so the money stayed with you"},
+    "r_emi_soon": {"hi": "EMI {n} दिन में है, पैसा हाथ में रखा", "en": "EMI is due in {n} days, so cash stayed with you"},
+    "r_stock_spend": {"hi": "माल खरीदना है, पैसा हाथ में रखा", "en": "Stock purchase coming, so cash stayed with you"},
+    "r_too_small": {"hi": "रकम ₹9 से कम थी", "en": "Amount was under ₹9"},
+    "r_good_day": {"hi": "आज अच्छा दिन था, थोड़ा ज़्यादा बचाया", "en": "Good day, saved a little more"},
+    "r_normal_day": {"hi": "आम दिन, थोड़ा सा बचाया", "en": "Normal day, saved a little"},
+    "r_declined": {"hi": "आपने मना किया", "en": "You said no"},
+    "r_withdrawn": {"hi": "आपने निकाला", "en": "You withdrew"},
+
+    # ---------------- gullak: spoken / summary / messages (engine)
+    "sp_saved": {"hi": "आज ₹{s} आए। ₹{a} गुल्लक में, आपके पास ₹{k}।",
+                 "en": "Today ₹{s} came in. ₹{a} went to the gullak, ₹{k} stays with you."},
+    "sp_skip": {"hi": "आज गुल्लक में कुछ नहीं डाला। {why}। पूरे ₹{s} आपके पास।",
+                "en": "Nothing went into the gullak today. {why}. All ₹{s} stays with you."},
+    "sum_saved": {"hi": "आज ₹{a} गुल्लक में गए। {goal} लक्ष्य {pct}%।", "en": "₹{a} went into the gullak today. {goal} goal {pct}%."},
+    "sum_skipped": {"hi": "आज गुल्लक नहीं भरा ({why})। {goal} लक्ष्य {pct}%।", "en": "No saving today ({why}). {goal} goal {pct}%."},
+    "sum_balance": {"hi": "गुल्लक में ₹{a} जमा। {goal} लक्ष्य {pct}%।", "en": "₹{a} saved. {goal} goal {pct}%."},
+    "goal_reached": {"hi": "बधाई हो! {goal} का लक्ष्य पूरा। ₹{a} जमा। नया लक्ष्य चुनें?",
+                     "en": "Well done! {goal} goal reached. ₹{a} saved. Choose a new goal?"},
+    "goal_progress": {"hi": "{goal} {pct}%", "en": "{goal} {pct}%"},
+    "wd_bad_amount": {"hi": "रकम समझ नहीं आई।", "en": "Couldn't understand the amount."},
+    "wd_min": {"hi": "रकम ₹1 से ज़्यादा होनी चाहिए।", "en": "Amount must be more than ₹1."},
+    "wd_too_much": {"hi": "गुल्लक में सिर्फ़ ₹{a} है। इतना नहीं निकाल सकते।", "en": "The gullak only has ₹{a}. You can't withdraw that much."},
+    "wd_done": {"hi": "₹{a} आपके खाते में (डेमो)। गुल्लक में ₹{left} बचे।", "en": "₹{a} sent to your account (demo). ₹{left} left in the gullak."},
+    "q_how_much": {"hi": "कितने पैसे निकालने हैं?", "en": "How much do you want to withdraw?"},
+    "q_cap": {"hi": "कितना प्रतिशत रखें? 1, 2 या 3?", "en": "What percent? 1, 2 or 3?"},
+    "q_unknown": {"hi": "समझ नहीं आया। गुल्लक रोकना है, पैसे निकालने हैं, या बैलेंस देखना है?",
+                  "en": "Sorry, I didn't get that. Pause, withdraw, or check the balance?"},
+
+    # ---------------- gullak: screens
+    "gk_title": {"hi": "गल्ला गुल्लक", "en": "Galla Gullak"},
+    "gk_sub": {"hi": "रोज़ की बिक्री से थोड़ी-थोड़ी बचत। खराब दिन अपने आप रुक जाती है।",
+               "en": "Save a little from every day's sales. It pauses by itself on bad days."},
+    "onb1_title": {"hi": "रोज़ की बिक्री से थोड़ा-थोड़ा बचाओ।", "en": "Save a little from each day's sales."},
+    "onb1_line": {"hi": "खराब दिन पर अपने आप रुक जाएगा।", "en": "It pauses by itself on bad days."},
+    "onb1_muted": {"hi": "जो छोटे पैसे रोज़ गल्ले से निकल जाते हैं, वो गुल्लक में जमा होंगे।",
+                   "en": "The small amounts that slip out of the cash box every day go into the gullak instead."},
+    "btn_start": {"hi": "शुरू करें", "en": "Get started"},
+    "onb2_q": {"hi": "किस चीज़ के लिए बचाना है?", "en": "What are you saving for?"},
+    "onb2_amt": {"hi": "कितना जमा करना है?", "en": "How much do you want to save?"},
+    "btn_next": {"hi": "आगे", "en": "Next"},
+    "onb3_q": {"hi": "रोज़ की बिक्री का कितना हिस्सा?", "en": "How much of each day's sales?"},
+    "onb3_example": {"hi": "₹4,000 की बिक्री पर ₹{amt} तक गुल्लक में।", "en": "On ₹4,000 of sales, up to ₹{amt} goes in."},
+    "onb3_example2": {"hi": "आम दिन पर आधा। खराब दिन पर कुछ नहीं।", "en": "Half on a normal day. Nothing on a bad day."},
+    "onb3_points": {"hi": "✔ कभी भी रोक सकते हो, कभी भी निकाल सकते हो।<br>✔ पहले 7 दिन हर शाम आपसे पूछेंगे।<br>✔ कॉन्सेप्ट डेमो, पार्टनर के ज़रिए। कोई असली पैसा नहीं कटेगा।",
+                    "en": "✔ Pause or withdraw any time.<br>✔ For the first 7 days we ask you every evening.<br>✔ Concept demo through partners. No real money is deducted."},
+    "btn_agree": {"hi": "हाँ, शुरू करो", "en": "Yes, start"},
+    "toast_started": {"hi": "गुल्लक शुरू हो गया", "en": "Gullak started"},
+    "auto_kicker": {"hi": "3 दिन आपने हाँ कहा", "en": "You said yes 3 times"},
+    "auto_q": {"hi": "अब से अपने आप डाल दूँ?", "en": "Shall I do it automatically from now?"},
+    "auto_line": {"hi": "खराब दिन पर नहीं डालूँगा। हर बार बताता रहूँगा।", "en": "I'll skip bad days and tell you every time."},
+    "btn_auto_yes": {"hi": "हाँ, अपने आप", "en": "Yes, automatically"},
+    "btn_auto_no": {"hi": "नहीं, पूछते रहो", "en": "No, keep asking"},
+    "toast_auto": {"hi": "अब से अपने आप। रोकना हो तो एक टैप।", "en": "Automatic from now. One tap to pause."},
+    "no_data_sub": {"hi": "सेटलमेंट आते ही बताएँगे।", "en": "We'll update you once the settlement arrives."},
+    "kicker_today": {"hi": "{day} · आज आए ₹{amt}", "en": "{day} · ₹{amt} came in today"},
+    "kicker_evening": {"hi": "{day} शाम · आज आए ₹{amt}", "en": "{day} evening · ₹{amt} came in today"},
+    "all_yours": {"hi": "पूरे ₹{amt} आपके पास।", "en": "All ₹{amt} stays with you."},
+    "chip_paused": {"hi": "⏸ रुका हुआ", "en": "⏸ Paused"},
+    "keep_big": {"hi": "₹{amt} आपके पास", "en": "₹{amt} stays with you"},
+    "saved_line": {"hi": "₹{amt} गुल्लक में डाले।", "en": "₹{amt} went into the gullak."},
+    "chip_saved": {"hi": "✓ आज ₹{amt} डाले", "en": "✓ ₹{amt} saved today"},
+    "skipped_line": {"hi": "आज गुल्लक में कुछ नहीं डाला।", "en": "Nothing went into the gullak today."},
+    "ask_big": {"hi": "₹{amt} गुल्लक में डालें?", "en": "Put ₹{amt} in the gullak?"},
+    "ask_keep": {"hi": "आपके पास <b>₹{amt}</b> रहेंगे।", "en": "<b>₹{amt}</b> stays with you."},
+    "btn_yes": {"hi": "हाँ", "en": "Yes"},
+    "btn_not_today": {"hi": "आज नहीं", "en": "Not today"},
+    "btn_new_goal": {"hi": "नया लक्ष्य चुनो", "en": "Choose a new goal"},
+    "bal_kicker": {"hi": "🪙 गुल्लक में जमा", "en": "🪙 Saved in gullak"},
+    "sahara_days": {"hi": "{d} दिन का सहारा", "en": "{d} days of cushion"},
+    "sahara_building": {"hi": "सहारा बन रहा है", "en": "Your cushion is building"},
+    "goal_line": {"hi": "{goal} · {pct}% · लक्ष्य ₹{target}", "en": "{goal} · {pct}% · target ₹{target}"},
+    "strip_title": {"hi": "पिछले 7 दिन · दिन दबाओ, वजह देखो", "en": "Last 7 days · tap a day to see why"},
+    "strip_saved": {"hi": "₹{amt} डाले · {why}", "en": "₹{amt} saved · {why}"},
+    "strip_not": {"hi": "नहीं डाला · {why}", "en": "Not saved · {why}"},
+    "strip_none": {"hi": "गुल्लक शुरू नहीं हुआ था", "en": "Gullak hadn't started"},
+    "bt_kicker": {"hi": "पिछले 30 दिन", "en": "Last 30 days"},
+    "bt_line": {"hi": "अगर 30 दिन पहले शुरू करते, तो आज गुल्लक में <b>₹{amt}</b> होता।",
+                "en": "If you had started 30 days ago, the gullak would hold <b>₹{amt}</b> today."},
+    "bt_skip": {"hi": "{n} दिन छोड़े: {slow} दिन बिक्री कम थी{extra}।", "en": "{n} days skipped: low sales on {slow}{extra}."},
+    "bt_extra": {"hi": ", {n} दिन EMI या माल के लिए", "en": ", {n} for EMI or stock"},
+    "bw_title": {"hi": "इस हफ़्ते बिक्री {pct}% कम है।", "en": "Sales are {pct}% lower this week."},
+    "bw_line": {"hi": "लोन लेने से पहले: गुल्लक में <b>₹{amt}</b> है।", "en": "Before taking a loan: your gullak has <b>₹{amt}</b>."},
+    "btn_see_gullak": {"hi": "गुल्लक देखो", "en": "Open gullak"},
+    "wd_q": {"hi": "कितने निकालने हैं?", "en": "How much do you want to withdraw?"},
+    "wd_have": {"hi": "गुल्लक में ₹{amt} है", "en": "The gullak has ₹{amt}"},
+    "wd_all": {"hi": "सब", "en": "All"},
+    "wd_type": {"hi": "या रकम लिखो (₹)", "en": "Or type an amount (₹)"},
+    "btn_back": {"hi": "वापस", "en": "Back"},
+    "btn_change_amt": {"hi": "रकम बदलो", "en": "Change amount"},
+    "wd_confirm": {"hi": "₹{amt} निकालें?", "en": "Withdraw ₹{amt}?"},
+    "wd_left": {"hi": "गुल्लक में ₹{amt} बचेंगे।", "en": "₹{amt} will stay in the gullak."},
+    "btn_wd_yes": {"hi": "हाँ, निकालो", "en": "Yes, withdraw"},
+    "btn_no": {"hi": "नहीं", "en": "No"},
+    "goal_new_title": {"hi": "नया लक्ष्य", "en": "New goal"},
+    "btn_confirm": {"hi": "पक्का करो", "en": "Confirm"},
+    "flash_goal": {"hi": "नया लक्ष्य: {goal}, ₹{amt}", "en": "New goal: {goal}, ₹{amt}"},
+    "cap_title": {"hi": "रोज़ की लिमिट", "en": "Daily limit"},
+    "cap_never": {"hi": "कभी 5% से ज़्यादा नहीं।", "en": "Never more than 5%."},
+    "cap_example": {"hi": "₹4,000 की बिक्री पर ज़्यादा से ज़्यादा ₹{amt}।", "en": "On ₹4,000 of sales, at most ₹{amt}."},
+    "flash_cap": {"hi": "लिमिट अब {pct}%", "en": "Limit is now {pct}%"},
+    "cc_goal": {"hi": "लक्ष्य \"{goal}\" रखें?", "en": "Set the goal to \"{goal}\"?"},
+    "cc_target": {"hi": "लक्ष्य ₹{amt}", "en": "Target ₹{amt}"},
+    "cc_cap": {"hi": "लिमिट {pct}% करें?", "en": "Change the limit to {pct}%?"},
+    "voice_title": {"hi": "🎤 बोलकर या लिखकर बताओ", "en": "🎤 Speak or type"},
+    "mic_label": {"hi": "माइक दबाओ और बोलो", "en": "Tap the mic and speak"},
+    "voice_ph": {"hi": "जैसे: \"2000 निकालो\" या \"गुल्लक बंद करो\"", "en": "e.g. \"withdraw 2000\" or \"pause gullak\""},
+    "btn_send": {"hi": "भेजो", "en": "Send"},
+    "voice_fail": {"hi": "आवाज़ समझ नहीं आई। नीचे लिख दीजिए।", "en": "Couldn't catch that. Please type below."},
+    "r_withdraw_q": {"hi": "₹{amt} निकालने हैं? नीचे पक्का कीजिए।", "en": "Withdraw ₹{amt}? Please confirm below."},
+    "r_paused_now": {"hi": "गुल्लक रोक दिया। चालू करना हो तो बोलो \"चालू करो\"।", "en": "Gullak paused. Say \"resume\" to restart."},
+    "r_resumed": {"hi": "गुल्लक फिर चालू।", "en": "Gullak is running again."},
+    "r_confirm_below": {"hi": "नीचे पक्का कीजिए।", "en": "Please confirm below."},
+    "r_status": {"hi": "गुल्लक में ₹{amt} जमा। {goal}।", "en": "₹{amt} saved. {goal}."},
+    "btn_withdraw": {"hi": "💸 पैसे निकालो", "en": "💸 Withdraw"},
+    "btn_pause": {"hi": "⏸ रोक दो", "en": "⏸ Pause"},
+    "btn_resume": {"hi": "▶ चालू करो", "en": "▶ Resume"},
+    "btn_goal": {"hi": "🎯 लक्ष्य बदलो", "en": "🎯 Change goal"},
+    "btn_cap": {"hi": "⚙ लिमिट बदलो", "en": "⚙ Change limit"},
+    "log_title": {"hi": "पूरा हिसाब", "en": "Full history"},
+    "col_date": {"hi": "दिन", "en": "Date"}, "col_what": {"hi": "क्या हुआ", "en": "What happened"},
+    "col_why": {"hi": "क्यों", "en": "Why"},
+    "act_saved": {"hi": "डाला", "en": "Saved"}, "act_skipped": {"hi": "छोड़ा", "en": "Skipped"},
+    "act_declined": {"hi": "मना किया", "en": "Declined"}, "act_withdrawn": {"hi": "निकाला", "en": "Withdrawn"},
+    "log_empty": {"hi": "अभी कुछ नहीं।", "en": "Nothing yet."},
+    "demo": {"hi": "डेमो कंट्रोल", "en": "Demo controls"},
+    "demo_next": {"hi": "अगला दिन ➜", "en": "Next day ➜"},
+    "demo_preset": {"hi": "3 महीने पुराना यूज़र", "en": "3-month-old user"},
+    "demo_badweek": {"hi": "खराब हफ़्ता", "en": "Bad week"},
+    "demo_reset": {"hi": "रीसेट", "en": "Reset"},
+    "foot_gullak": {"hi": "कॉन्सेप्ट · पार्टनर के ज़रिए (जैसे Paytm Gold) · मॉक डेटा · कोई असली पैसा नहीं कटेगा · कोई रेट, रिटर्न या गारंटी नहीं",
+                    "en": "Concept · through partners (like Paytm Gold) · mock data · no real money deducted · no rates, returns or guarantees"},
+    "hc_gk_kicker": {"hi": "🪙 गल्ला गुल्लक", "en": "🪙 Galla Gullak"},
+    "hc_gk_title": {"hi": "रोज़ की बिक्री से थोड़ा बचाओ", "en": "Save a little from daily sales"},
+    "hc_gk_saved": {"hi": "₹{amt} जमा", "en": "₹{amt} saved"},
+    "chip_not_today": {"hi": "● आज नहीं: {why}", "en": "● Not today: {why}"},
+    "chip_pending": {"hi": "आज का सवाल बाकी", "en": "Today's question is waiting"},
+    "btn_open_gullak": {"hi": "गुल्लक खोलो", "en": "Open gullak"},
+
+    # ---------------- wapas aao
+    "wa_title": {"hi": "वापस आओ", "en": "Wapas Aao"},
+    "wa_sub": {"hi": "पुराने पक्के ग्राहक वापस बुलाओ। सिर्फ़ उन्हें, जो राज़ी हैं।",
+               "en": "Bring back regulars who stopped coming. Only those who agreed."},
+    "ask_title": {"hi": "दुकान में क्या परेशानी है?", "en": "What's the problem at the shop?"},
+    "ask_sub": {"hi": "बोलो या लिखो, जैसे: \"दोपहर में दुकान खाली रहती है\"", "en": "Speak or type, e.g. \"The shop is empty in the afternoon\""},
+    "ex1": {"hi": "दोपहर में दुकान खाली रहती है", "en": "The shop is empty in the afternoon"},
+    "ex2": {"hi": "पुराने ग्राहक नहीं आ रहे", "en": "Old customers aren't coming"},
+    "ph_text": {"hi": "अपनी बात लिखो", "en": "Type here"},
+    "btn_ask": {"hi": "पूछो", "en": "Ask"},
+    "note_refuse": {"hi": "हम किसी ग्राहक का नाम या नंबर नहीं दिखाते, और सिर्फ़ उन्हीं तक पहुँचते हैं जो राज़ी हैं। उनके लिए ऑफ़र बनाएँ?",
+                    "en": "We never show customer names or numbers, and only reach customers who agreed. Create an offer for them?"},
+    "note_q": {"hi": "दुकान कब खाली रहती है, या कौन से ग्राहक नहीं आ रहे?", "en": "When is the shop quiet, or which customers stopped coming?"},
+    "find1": {"hi": "दोपहर {w} आपकी बिक्री बाक़ी दिन से {pct}% कम है।", "en": "Between {w}, your sales are {pct}% lower than the rest of the day."},
+    "find2": {"hi": "{n} पक्के ग्राहक 3 हफ़्ते से नहीं आए।", "en": "{n} regular customers haven't come in 3 weeks."},
+    "find_q": {"hi": "उन्हें दोपहर में वापस बुलाएँ?", "en": "Invite them back in the afternoon?"},
+    "btn_suggest": {"hi": "हाँ, कुछ सुझाओ", "en": "Yes, suggest something"},
+    "btn_not_now": {"hi": "अभी नहीं", "en": "Not now"},
+    "window": {"hi": "{a}–{b} बजे", "en": "{a}–{b} pm"},
+    "offer_flat": {"hi": "₹{min}+ के बिल पर ₹{v} छूट", "en": "₹{v} off on bills of ₹{min}+"},
+    "offer_free": {"hi": "₹{min}+ के बिल पर बिस्किट पैकेट फ़्री", "en": "Free biscuit packet on bills of ₹{min}+"},
+    "offer_stamp": {"hi": "हर 5वीं विज़िट पर ₹{v} वापस (₹{min}+ बिल)", "en": "₹{v} back on every 5th visit (₹{min}+ bills)"},
+    "prop_kicker": {"hi": "सुझाया गया ऑफ़र", "en": "Suggested offer"},
+    "prop_when": {"hi": "दोपहर {w} · {d} दिन ({end} तक)", "en": "{w} · {d} days (until {end})"},
+    "reach_kicker": {"hi": "कितने ग्राहकों तक पहुँचेगा", "en": "How many customers it reaches"},
+    "reach_big": {"hi": "{total} में से {r}", "en": "{r} of {total}"},
+    "leg_rewards": {"hi": "{n} रिवॉर्ड्स मेंबर", "en": "{n} rewards members"},
+    "leg_paytm": {"hi": "{n} ने Paytm ऐप में ऑफ़र चालू किए", "en": "{n} turned on offers in the Paytm app"},
+    "leg_none": {"hi": "{n} से संपर्क नहीं (उन्होंने हाँ नहीं कहा)", "en": "{n} not contacted (they didn't agree)"},
+    "cost_share": {"hi": "छूट, बिल का", "en": "Discount as share of bill"},
+    "cost_margin": {"hi": "आपका मुनाफ़ा (अंदाज़ा)", "en": "Your margin (estimate)"},
+    "cost_max": {"hi": "ज़्यादा से ज़्यादा खर्च", "en": "Maximum spend"},
+    "cost_ok": {"hi": "✓ छूट आपके मुनाफ़े के आधे से कम", "en": "✓ Discount is under half your margin"},
+    "cost_repriced": {"hi": "ऑफ़र महंगा था, कम से कम बिल बढ़ाया", "en": "Offer was too costly, minimum bill raised"},
+    "other_offers": {"hi": "दूसरा ऑफ़र देखो", "en": "See other offers"},
+    "privacy_line": {"hi": "🔒 आपको ग्राहकों के नाम या नंबर नहीं दिखेंगे, सिर्फ़ गिनती और रुपये।",
+                     "en": "🔒 You won't see customer names or numbers, only counts and rupees."},
+    "holdout_line": {"hi": "📏 सही हिसाब के लिए {n} ग्राहकों को ऑफ़र नहीं भेजेंगे, उनसे तुलना करेंगे।",
+                     "en": "📏 To measure fairly, {n} customers won't get the offer; we compare against them."},
+    "btn_run": {"hi": "हाँ, चलाओ", "en": "Yes, run it"},
+    "billing": {"hi": "बिलिंग: Soundbox प्लान में शामिल (कॉन्सेप्ट)। हर पेमेंट पर कोई फ़ीस नहीं।",
+                "en": "Billing: included in the Soundbox plan (concept). No per-payment fee."},
+    "run_kicker": {"hi": "ऑफ़र चालू · {offer}", "en": "Offer running · {offer}"},
+    "run_title": {"hi": "आज {n} ग्राहकों को छूट मिली", "en": "{n} customers got the discount today"},
+    "spent": {"hi": "खर्च", "en": "Spent"},
+    "new_members": {"hi": "नए रिवॉर्ड्स मेंबर", "en": "New rewards members"},
+    "soundbox": {"hi": "🔊 Soundbox:", "en": "🔊 Soundbox:"},
+    "sb_offer": {"hi": "Paytm पर ₹{p} प्राप्त हुए। वापस आओ ऑफ़र लगा, ₹{d}। बिल ₹{b}।",
+                 "en": "₹{p} received on Paytm. Wapas Aao offer applied, ₹{d}. Bill ₹{b}."},
+    "sb_plain": {"hi": "Paytm पर ₹{p} प्राप्त हुए।", "en": "₹{p} received on Paytm."},
+    "btn_result": {"hi": "14 दिन बाद नतीजा देखो (डेमो)", "en": "See the result after 14 days (demo)"},
+    "btn_stop": {"hi": "ऑफ़र रोको", "en": "Stop offer"},
+    "cv_title": {"hi": "👀 ग्राहक के फ़ोन पर क्या दिखेगा", "en": "👀 What the customer sees"},
+    "cv_tab1": {"hi": "Paytm ऐप वाले", "en": "On the Paytm app"},
+    "cv_tab2": {"hi": "दूसरे UPI ऐप वाले", "en": "On another UPI app"},
+    "cv_bar1": {"hi": "Paytm · स्कैन करके पे करें", "en": "Paytm · Scan & Pay"},
+    "cv_bar2": {"hi": "कोई भी UPI ऐप", "en": "Any UPI app"},
+    "cv_applied": {"hi": "✓ वापस आओ ऑफ़र लगा: −₹{d}", "en": "✓ Wapas Aao offer applied: −₹{d}"},
+    "cv_note1": {"hi": "ग्राहक सीधे कम पैसे देता है। कोई कैशबैक नहीं।", "en": "The customer simply pays less. No cashback."},
+    "cv_cap1": {"hi": "यह सिर्फ़ उन्हें दिखता है जिन्होंने Paytm ऐप में दुकानों के ऑफ़र चालू किए हैं।",
+                "en": "Only customers who turned on shop offers in the Paytm app see this."},
+    "cv_counter": {"hi": "काउंटर पर ऑफ़र मिलेगा।", "en": "The offer is given at the counter."},
+    "cv_paid": {"hi": "₹268 भेजे ✓", "en": "₹268 paid ✓"},
+    "cv_nochange": {"hi": "उनके ऐप में कुछ नहीं बदलता", "en": "Nothing changes in their app"},
+    "cv_sb2": {"hi": "\"₹268 प्राप्त हुए। रिवॉर्ड: 5 में से {n} विज़िट पूरी।\"", "en": "\"₹268 received. Rewards: {n} of 5 visits done.\""},
+    "cv_cap2": {"hi": "ये ग्राहक काउंटर पर रखे \"रिवॉर्ड्स\" QR से एक बार जुड़ते हैं। 5वीं विज़िट पर ₹30 वापस मिलते हैं।",
+                "en": "These customers join once using the \"Rewards\" QR at the counter. On the 5th visit they get ₹30 back."},
+    "res_kicker": {"hi": "{d} दिन का नतीजा", "en": "Result after {d} days"},
+    "res_line": {"hi": "ऑफ़र के खर्च के बाद अतिरिक्त मुनाफ़ा", "en": "Extra profit after the offer's cost"},
+    "res_muted": {"hi": "जिन्हें ऑफ़र नहीं मिला, उनसे तुलना करके", "en": "Compared with customers who didn't get the offer"},
+    "res_back": {"hi": "वापस आए पक्के ग्राहक", "en": "Regulars who came back"},
+    "res_sales": {"hi": "अतिरिक्त बिक्री", "en": "Extra sales"},
+    "res_profit": {"hi": "उस पर मुनाफ़ा (~{m}%)", "en": "Profit on that (~{m}%)"},
+    "res_cost": {"hi": "ऑफ़र खर्च ({n} × ₹{v})", "en": "Offer cost ({n} × ₹{v})"},
+    "res_next": {"hi": "अगला सुझाव", "en": "Next suggestion"},
+    "res_tip": {"hi": "मंगल-बुध को असर लगभग दुगना था। अगली बार सिर्फ़ इन दिनों चलाएँ?",
+                "en": "The effect was about double on Tue–Wed. Run it only on those days next time?"},
+    "res_small": {"hi": "गिनती छोटी है, इसलिए यह अंदाज़ा है। असली नाप कई दुकानों को मिलाकर होगा।",
+                  "en": "Small numbers, so this is an estimate. Real measurement combines many shops."},
+    "btn_again": {"hi": "फिर से चलाओ", "en": "Run again"},
+    "btn_new_q": {"hi": "नया सवाल", "en": "New question"},
+    "btn_restart": {"hi": "शुरू से", "en": "Start over"},
+    "trust_title": {"hi": "भरोसा और नियम", "en": "Trust and rules"},
+    "trust_body": {
+        "hi": ("- **सिर्फ़ राज़ी ग्राहक:** जिन्होंने Paytm ऐप में ऑफ़र चालू किए या काउंटर पर रिवॉर्ड्स से जुड़े। बाकी को कुछ नहीं भेजते।\n"
+               "- **सहमति अलग से:** सेटिंग्स या रिवॉर्ड्स QR पर, पेमेंट स्क्रीन पर कभी नहीं।\n"
+               "- **दुकानदार को सिर्फ़ गिनती:** कोई नाम, नंबर या UPI ID नहीं।\n"
+               "- **छूट सीधे बिल पर:** ग्राहक कम देता है। कोई कैशबैक या वॉलेट नहीं।\n"
+               "- **कोई SMS या WhatsApp ब्लास्ट नहीं।**\n"
+               "- **असली तारीख:** हर ऑफ़र की पक्की आख़िरी तारीख, कोई झूठी जल्दी नहीं।\n"
+               "- **छोड़ो = डेटा मिटाओ:** ग्राहक एक टैप में बाहर, उसका डेटा डिलीट।\n"
+               "- **खर्च की सीमा:** छूट मुनाफ़े के आधे से कम, बजट पूरा होते ही ऑफ़र बंद।\n"
+               "- **लोन ऑफ़र इस फ़्लो में नहीं।**\n"
+               "- **लीगल जाँच बाकी:** रिवॉर्ड के लिए रिफ़ंड का इस्तेमाल (RBI PA नियम 2025) और बिलिंग का तरीका। तब तक दुकानदार बिल से ₹30 कम करता है।"),
+        "en": ("- **Only customers who agreed:** turned on offers in the Paytm app, or joined rewards at the counter. Nobody else is contacted.\n"
+               "- **Consent asked separately:** in settings or on the rewards QR, never on the payment screen.\n"
+               "- **Shopkeeper sees counts only:** no names, numbers or UPI IDs.\n"
+               "- **Discount on the bill:** the customer pays less. No cashback or wallet.\n"
+               "- **No SMS or WhatsApp blasts.**\n"
+               "- **Real dates:** every offer has a fixed end date; no fake urgency.\n"
+               "- **Leave = data deleted:** a customer can leave in one tap; their data is erased.\n"
+               "- **Spending limits:** discount under half the margin; the offer stops when the budget is used.\n"
+               "- **No loan offers in this flow.**\n"
+               "- **Legal check pending:** using a refund to pay rewards (RBI PA rules 2025) and the billing model. Until then the shopkeeper takes ₹30 off the bill."),
+    },
+    "foot_wapas": {"hi": "कॉन्सेप्ट · मॉक डेटा · कोई असली पेमेंट या मैसेज नहीं", "en": "Concept · mock data · no real payments or messages"},
+    "hc_wa_kicker": {"hi": "🔁 वापस आओ", "en": "🔁 Wapas Aao"},
+    "hc_wa_running": {"hi": "ऑफ़र चालू", "en": "Offer running"},
+    "hc_wa_title": {"hi": "{n} पक्के ग्राहक 3 हफ़्ते से नहीं आए", "en": "{n} regulars haven't come in 3 weeks"},
+    "hc_wa_sub": {"hi": "दोपहर {w} दुकान खाली रहती है।", "en": "The shop is quiet from {w}."},
+    "btn_see_result": {"hi": "नतीजा देखो", "en": "See result"},
+    "btn_invite_back": {"hi": "वापस बुलाओ", "en": "Invite them back"},
+}
+
+
+def T(lang, key, **kw):
+    entry = S.get(key)
+    if entry is None:
+        return key
+    text = entry.get(lang) or entry.get(DEFAULT)
+    return text.format(**kw) if kw else text
+
+
+def goal_label(lang, name):
+    return GOAL_LABELS.get(name, {}).get(lang, name)
+
+
+def tts_lang(lang):
+    return "en-IN" if lang == "en" else "hi-IN"
+
+
+def llm_language(lang):
+    return "English" if lang == "en" else "Hindi in Devanagari script"

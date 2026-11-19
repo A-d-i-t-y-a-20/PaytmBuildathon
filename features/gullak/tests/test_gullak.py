@@ -47,7 +47,7 @@ def test_slow_day():
 
 def test_emi_tomorrow_low_cash():
     r = E.decide_day(S, OB, state(), "2026-11-21")
-    check("EMI due, low cash -> skip", r["skip"] and r["reason_code"] == "emi_soon" and "1 din" in r["reason"], r)
+    check("EMI due, low cash -> skip", r["skip"] and r["reason_code"] == "emi_soon" and "1 दिन" in r["reason"], r)
 
 
 def test_stock_spend_over_cash():
@@ -133,7 +133,7 @@ def test_cap_never_above_5():
 
 def test_goal_reached():
     g = E.goal_status(state(balance=10000))
-    check("goal reached -> congratulate + new goal", g["reached"] and "Naya goal" in g["message"], g)
+    check("goal reached -> congratulate + new goal", g["reached"] and "नया लक्ष्य" in g["message"], g)
 
 
 def test_suggest_to_auto():
@@ -152,6 +152,40 @@ def test_backtest_totals():
     check("backtest totals match history", ok, {k: bt[k] for k in ("total", "saved_days", "skipped_days", "skip_reasons")})
 
 
+def test_hindi_script_withdraw():
+    c = E.validate_command(None, "गुल्लक से दो हज़ार निकालो", state())
+    check('Hindi script "दो हज़ार निकालो" -> withdraw 2000, confirm', c["intent"] == "withdraw" and c["amount"] == 2000 and c["needs_confirm"], c)
+
+
+def test_hindi_script_pause():
+    c = E.validate_command(None, "गुल्लक बंद करो", state())
+    check('Hindi script "गुल्लक बंद करो" -> pause', c["intent"] == "pause", c)
+
+
+def test_english_commands():
+    a = E.validate_command(None, "withdraw 2000", state())
+    b = E.validate_command(None, "pause the gullak", state())
+    c = E.validate_command(None, "save for wedding", state())
+    check("English: withdraw / pause / save for wedding", a["intent"] == "withdraw" and a["amount"] == 2000
+          and b["intent"] == "pause" and c["intent"] == "set_goal" and c["goal_name"] == "Shaadi", (a, b, c))
+
+
+def test_language_switch():
+    hi = E.decide_day(S, OB, state(), "2026-11-23", lang="hi")
+    en = E.decide_day(S, OB, state(), "2026-11-23", lang="en")
+    st_ = state(mode="auto")
+    E.process_day(st_, hi)
+    switched = E.entry_reason(st_["history"][-1], "en")
+    check("reasons follow the chosen language (also for saved history)",
+          "बिक्री" in hi["reason"] and "Sales were low" in en["reason"] and "Sales were low" in switched, (hi["reason"], en["reason"], switched))
+
+
+def test_question_in_language():
+    q_hi = E.validate_command(None, "kuch bhi", state(), lang="hi")["question"]
+    q_en = E.validate_command(None, "something random", state(), lang="en")["question"]
+    check("clarifying question in chosen language", "समझ" in q_hi and "didn't get" in q_en, (q_hi, q_en))
+
+
 def test_rs_format():
     check("Indian number format", E.rs(123456) == "1,23,456" and E.rs(6240) == "6,240", E.rs(123456))
 
@@ -160,11 +194,15 @@ ALL = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
 
 
 def run_table():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     order = [test_normal_day, test_good_day, test_slow_day, test_emi_tomorrow_low_cash, test_stock_spend_over_cash,
              test_paused, test_amount_below_9, test_llm_pct_above_cap_clamps, test_llm_in_bounds_used,
              test_llm_down_fallback, test_spoken_line_number_guard, test_withdraw_more_than_balance, test_withdraw_ok,
              test_2000_nikalo, test_garbled_voice, test_injection, test_set_goal_voice, test_pause_voice,
-             test_cap_never_above_5, test_goal_reached, test_suggest_to_auto, test_backtest_totals, test_rs_format]
+             test_cap_never_above_5, test_goal_reached, test_suggest_to_auto, test_backtest_totals,
+             test_hindi_script_withdraw, test_hindi_script_pause, test_english_commands, test_language_switch,
+             test_question_in_language, test_rs_format]
     for t in order:
         try:
             t()

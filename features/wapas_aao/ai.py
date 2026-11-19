@@ -3,8 +3,9 @@ import os
 import re
 
 from features.common import llm
+from features.common.i18n import llm_language
 
-PROMPT_VERSION = "wapas_v1"
+PROMPT_VERSION = "wapas_v2"
 _PROMPT_PATH = os.path.join(os.path.dirname(__file__), "prompts", f"{PROMPT_VERSION}.md")
 
 
@@ -17,12 +18,12 @@ def available():
     return llm.available()
 
 
-def understand(text):
-    return llm.call_json(_prompt(), {"task": "understand", "text": text}, max_tokens=200)
+def understand(text, lang="hi"):
+    return llm.call_json(_prompt(), {"task": "understand", "text": text, "language": llm_language(lang)}, max_tokens=200)
 
 
-def phrase(facts):
-    return llm.call_json(_prompt(), {"task": "phrase", "facts": facts}, max_tokens=250)
+def phrase(facts, lang="hi"):
+    return llm.call_json(_prompt(), {"task": "phrase", "facts": facts, "language": llm_language(lang)}, max_tokens=250)
 
 
 def numbers_ok(text, facts):

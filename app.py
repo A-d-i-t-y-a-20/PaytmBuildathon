@@ -22,6 +22,7 @@ except Exception:
     pass
 
 from features.common import ui_kit as K
+from features.common.i18n import DAY_LONG, LANGS, MONTHS
 from features.gullak import engine as G
 from features.gullak import ui as gullak_ui
 from features.wapas_aao import ui as wapas_ui
@@ -29,12 +30,13 @@ from features.wapas_aao import ui as wapas_ui
 st.set_page_config(page_title="Galla", page_icon="🪙", layout="centered", initial_sidebar_state="collapsed")
 
 SHOP = "Gupta General Store"
-TABS = [("aaj", "🏠", "Aaj"), (gullak_ui.NAV_KEY, "🪙", "Gullak"), (wapas_ui.NAV_KEY, "🔁", "Grahak")]
-DAY_NAMES = ["Somvar", "Mangalvar", "Budhvar", "Guruvar", "Shukravar", "Shanivar", "Ravivar"]
-MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+TABS = [("aaj", "🏠", "tab_aaj"), (gullak_ui.NAV_KEY, "🪙", "tab_gullak"), (wapas_ui.NAV_KEY, "🔁", "tab_grahak")]
+t = K.t
 
 if "nav" not in st.session_state:
     st.session_state.nav = "aaj"
+if "lang" not in st.session_state:
+    st.session_state.lang = "hi"
 
 # ---------------------------------------------------------------- phone shell
 st.markdown("""
@@ -50,7 +52,10 @@ st.markdown("""
 .gl-top { display:flex; justify-content:space-between; align-items:center; padding: 6px 2px 10px; }
 .gl-brand { font-size: 24px; font-weight: 800; color: #0B2447; letter-spacing: .2px; }
 .gl-brand span { color: #00BAF2; }
-.gl-shop { font-size: 13px; color: #5B6472; text-align: right; line-height: 1.3; }
+.gl-shop { font-size: 12px; color: #5B6472; line-height: 1.3; margin-top: 2px; }
+.st-key-kx_topbar { margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #E4E7EC; }
+.st-key-kx_topbar [data-testid="stHorizontalBlock"] { align-items: center; }
+.st-key-kx_topbar [data-testid="stButtonGroup"] { justify-content: flex-end; display: flex; }
 /* bottom tab bar */
 .st-key-kx_tabbar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: min(480px, 100%);
   background: #fff; border-top: 1px solid #E4E7EC; padding: 6px 10px calc(8px + env(safe-area-inset-bottom)); z-index: 1000;
@@ -64,15 +69,22 @@ K.inject_css()
 
 
 def top_bar():
-    st.markdown(f'<div class="gl-top"><div class="gl-brand">Galla<span>.</span></div>'
-                f'<div class="gl-shop">{SHOP}<br>Concept demo</div></div>', unsafe_allow_html=True)
+    with st.container(key="kx_topbar"):
+        c1, c2 = st.columns([3, 2])
+        c1.markdown(f'<div class="gl-brand">Galla<span>.</span></div><div class="gl-shop">{SHOP} · {t("concept_demo")}</div>',
+                    unsafe_allow_html=True)
+        choice = c2.segmented_control("lang", list(LANGS), format_func=lambda c: {"hi": "हिं", "en": "EN"}[c],
+                                      default=st.session_state.lang, key="lang_seg", label_visibility="collapsed")
+        if choice and choice != st.session_state.lang:
+            st.session_state.lang = choice
+            st.rerun()
 
 
 def tab_bar():
     with st.container(key="kx_tabbar"):
         cols = st.columns(len(TABS))
-        for col, (key, icon, label) in zip(cols, TABS):
-            if col.button(f"{icon}\n{label}", key=f"tab_{key}", width="stretch",
+        for col, (key, icon, label_key) in zip(cols, TABS):
+            if col.button(f"{icon}\n{t(label_key)}", key=f"tab_{key}", width="stretch",
                           type="primary" if st.session_state.nav == key else "secondary"):
                 st.session_state.nav = key
                 st.rerun()
@@ -85,17 +97,18 @@ def aaj_screen():
     d = date.fromisoformat(day)
     settlement = S.get(day)
     with st.container(key="kx_page_aaj"):
-        st.markdown(f'<div class="kx-title">Namaste 🙏</div>'
-                    f'<div class="kx-sub">{DAY_NAMES[d.weekday()]}, {d.day} {MONTHS[d.month - 1]}</div>',
+        lang = st.session_state.lang
+        st.markdown(f'<div class="kx-title">{t("namaste")}</div>'
+                    f'<div class="kx-sub">{DAY_LONG[lang][d.weekday()]}, {d.day} {MONTHS[lang][d.month - 1]}</div>',
                     unsafe_allow_html=True)
         if settlement is None:
-            K.card('<div class="kx-mid">Aaj ka data abhi nahi aaya</div>', "grey")
+            K.card(f'<div class="kx-mid">{t("r_no_data")}</div>', "grey")
         else:
-            K.card(f'<div class="kx-kicker">Aaj UPI se aaye</div><div class="kx-big">₹{G.rs(settlement)}</div>'
-                   f'<div class="kx-muted">Paytm Soundbox settlement (mock)</div>')
+            K.card(f'<div class="kx-kicker">{t("upi_today")}</div><div class="kx-big">₹{G.rs(settlement)}</div>'
+                   f'<div class="kx-muted">{t("upi_today_sub")}</div>')
     gullak_ui.render_home_card()
     wapas_ui.render_home_card()
-    K.foot("Concept · mock data · koi asli paisa ya message nahi")
+    K.foot(t("foot_app"))
 
 
 # ---------------------------------------------------------------- route

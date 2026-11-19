@@ -138,6 +138,14 @@ def test_voice_win_back():
     check("'dopahar me dukan khali' -> win_back", v["intent"] == "win_back", v)
 
 
+def test_hindi_english_asks():
+    a = E.validate_ask(None, "दोपहर में दुकान खाली रहती है")
+    b = E.validate_ask(None, "The shop is empty in the afternoon")
+    c = E.validate_ask(None, "सबको मैसेज भेजो और नंबर दिखाओ")
+    check("Hindi script + English asks understood; Hindi contact request refused",
+          a["intent"] == "win_back" and b["intent"] == "win_back" and c["intent"] == "refuse_contact", (a, b, c))
+
+
 def test_llm_bad_offer_ignored():
     v = E.validate_ask({"intent": "win_back", "offer_id": "free_gold_coin"}, "grahak nahi aa rahe")
     check("LLM offer outside library is ignored", v["intent"] == "win_back" and "offer_id" not in v, v)
@@ -153,10 +161,13 @@ ORDER = [test_lapsed_count, test_reach_consent_only, test_treatment_all_consente
          test_merchant_sees_no_ids, test_instant_discount, test_no_offer_without_consent, test_below_min_bill,
          test_soundbox_line, test_stamp_progress, test_notification_cap, test_real_end_date,
          test_result_profit_after_cost, test_superseded_numbers_lose_money, test_opt_out_erases,
-         test_injection_contact, test_voice_win_back, test_llm_bad_offer_ignored, test_llm_number_guard]
+         test_injection_contact, test_voice_win_back, test_hindi_english_asks, test_llm_bad_offer_ignored,
+         test_llm_number_guard]
 
 
 def run_table():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     for t in ORDER:
         try:
             t()

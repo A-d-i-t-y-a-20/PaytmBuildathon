@@ -2,6 +2,8 @@
 
 A phone-first app for kirana owners with exactly two features. Concept demo, mock data: no real money or messages move.
 
+Language: Hindi (Devanagari) or English, switch in the top bar. Voice commands work in Hindi script, Hinglish or English.
+
 | Tab | Feature | What it does |
 |---|---|---|
 | Aaj | Home | Today's UPI money plus one card per feature |
@@ -17,7 +19,7 @@ Optional secrets (env vars or `.streamlit/secrets.toml`): `GEMINI_API_KEY` (or `
 
 ## Tests
 ```
-python -m pytest features -q                  # 47 tests, no API key needed
+python -m pytest features -q                  # 53 tests, no API key needed
 python -m features.gullak.tests.test_gullak   # printed pass/fail table
 python -m features.wapas_aao.tests.test_wapas
 ```

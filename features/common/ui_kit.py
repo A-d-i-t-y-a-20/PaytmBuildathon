@@ -8,6 +8,8 @@ import hashlib
 
 import streamlit as st
 
+from features.common.i18n import T, tts_lang
+
 GREEN, GREEN_BG = "#0E8A4F", "#E9F8EF"
 AMBER, AMBER_BG = "#B45309", "#FFF4E2"
 GREY, GREY_BG = "#5B6472", "#F1F3F6"
@@ -65,11 +67,20 @@ CSS = f"""
 """
 
 
+def lang():
+    return st.session_state.get("lang", "hi")
+
+
+def t(key, **kw):
+    return T(lang(), key, **kw)
+
+
 def inject_css():
     st.markdown(CSS, unsafe_allow_html=True)
 
 
-def header(title, subtitle, badge="Concept"):
+def header(title, subtitle, badge=None):
+    badge = badge or t("concept")
     st.markdown(
         f'<div class="kx-head"><div class="kx-title">{title}</div><span class="kx-badge">{badge}</span></div>'
         f'<div class="kx-sub">{subtitle}</div>', unsafe_allow_html=True)
@@ -93,15 +104,16 @@ def foot(text):
     st.markdown(f'<div class="kx-foot">{text}</div>', unsafe_allow_html=True)
 
 
-def speak(text, lang="hi-IN", autoplay=False, key="tts"):
+def speak(text, lang_code=None, autoplay=False, key="tts"):
     """Play text through Sarvam TTS (cached). Text is always shown separately by the caller."""
     from features.common import voice
     if not voice.has_key() or not text:
         return False
+    lang_code = lang_code or tts_lang(lang())
     cache = st.session_state.setdefault("_kx_tts_cache", {})
-    h = hashlib.sha1((lang + text).encode()).hexdigest()
+    h = hashlib.sha1((lang_code + text).encode()).hexdigest()
     if h not in cache:
-        cache[h] = voice.text_to_speech(text, lang)
+        cache[h] = voice.text_to_speech(text, lang_code)
     if cache[h]:
         st.audio(cache[h], format="audio/wav", autoplay=autoplay)
         return True
@@ -123,5 +135,5 @@ def listen(label, key):
     res = voice.speech_to_text(audio.getvalue())
     seen[h] = (res or {}).get("transcript") or None
     if not seen[h]:
-        st.caption("Awaaz samajh nahi aayi. Neeche likh dijiye.")
+        st.caption(t("voice_fail"))
     return seen[h]

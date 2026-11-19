@@ -7,6 +7,8 @@ comes from this module. Mock data only -- no real money moves.
 import re
 from datetime import date, timedelta
 
+from features.common.i18n import T, goal_label, llm_language
+
 MIN_PCT = 0.5
 MAX_CAP = 5.0
 DEFAULT_CAP = 3.0
@@ -16,14 +18,11 @@ YES_FOR_AUTO = 3
 
 GOALS = ["Diwali", "Shaadi", "Emergency", "Dukaan", "Bas bachat"]
 
-REASONS = {
-    "paused": "Gullak ruka hua hai",
-    "no_data": "Aaj ka data abhi nahi aaya",
-    "slow_day": "Aaj bikri kam thi, paisa aapke paas rakha",
-    "emi_soon": "EMI {n} din mein hai, paisa haath mein rakha",
-    "stock_spend": "Maal kharidna hai, paisa haath mein rakha",
-    "too_small": "Rakam Rs 9 se kam thi",
-}
+REASON_CODES = ("paused", "no_data", "slow_day", "emi_soon", "stock_spend", "too_small")
+
+
+def reason_text(code, lang="hi", **kw):
+    return T(lang, f"r_{code}", **kw)
 
 
 # ---------------------------------------------------------------- helpers
@@ -79,15 +78,15 @@ def day_inputs(settlements, obligations, day):
 
 
 # ---------------------------------------------------------------- rules
-def evaluate(inp, cap_pct, paused=False):
+def evaluate(inp, cap_pct, paused=False, lang="hi"):
     """Skip checks + pct bounds. Returns a dict; no LLM involved."""
     cap = clamp_cap(cap_pct)
     s, usual = inp.get("settlement"), inp.get("usual")
-    ev = {"skip": False, "reason_code": None, "reason": "", "day_type": None,
+    ev = {"skip": False, "reason_code": None, "reason_kw": {}, "reason": "", "day_type": None,
           "ratio": None, "bounds": None, "cap": cap}
 
     def skip(code, **kw):
-        ev.update(skip=True, reason_code=code, reason=REASONS[code].format(**kw))
+        ev.update(skip=True, reason_code=code, reason_kw=kw, reason=reason_text(code, lang, **kw))
         return ev
 
     if paused:
@@ -142,16 +141,17 @@ def numbers_in(text):
     return {int(n.replace(",", "")) for n in re.findall(r"\d[\d,]*", text or "") if n.replace(",", "").isdigit()}
 
 
-def decide_day(settlements, obligations, state, day, llm_fn=None):
+def decide_day(settlements, obligations, state, day, llm_fn=None, lang="hi"):
     """Full daily decision. llm_fn(payload) -> dict|None picks pct within bounds."""
     inp = day_inputs(settlements, obligations, day)
-    ev = evaluate(inp, state.get("cap_pct", DEFAULT_CAP), paused=state.get("mode") == "paused")
+    ev = evaluate(inp, state.get("cap_pct", DEFAULT_CAP), paused=state.get("mode") == "paused", lang=lang)
     rec = {"date": inp["date"], "settlement": inp["settlement"], "usual": inp["usual"],
            "day_type": ev["day_type"], "ratio": ev["ratio"], "bounds": ev["bounds"],
            "pct": 0.0, "amount": 0, "skip": ev["skip"], "reason_code": ev["reason_code"],
-           "reason": ev["reason"], "used_fallback": True, "spoken_line": ""}
+           "reason_kw": ev["reason_kw"], "reason": ev["reason"], "llm_reason": None, "llm_lang": None,
+           "used_fallback": True, "spoken_line": "", "lang": lang}
     if ev["skip"]:
-        rec["spoken_line"] = spoken_template(rec)
+        rec["spoken_line"] = spoken_template(rec, lang)
         return rec
 
     pct, reason, used_fb = fallback_pct(ev), None, True
@@ -163,6 +163,7 @@ def decide_day(settlements, obligations, state, day, llm_fn=None):
             "emi_amount": inp["emi_amount"], "cash_in_hand": inp["cash"],
             "stock_spend_next_3_days": inp["stock_spend_3d"],
             "pct_bounds": {"min": ev["bounds"][0], "max": ev["bounds"][1]},
+            "language": llm_language(lang),
         })
         if isinstance(out, dict) and "pct" in out:
             pct, in_bounds = validate_pct(out.get("pct"), ev["bounds"])
@@ -171,42 +172,57 @@ def decide_day(settlements, obligations, state, day, llm_fn=None):
                 reason = _short(out["reason"], 12)
     amount = compute_amount(inp["settlement"], pct)
     if amount == 0:
-        rec.update(skip=True, reason_code="too_small", reason=REASONS["too_small"], pct=pct)
-        rec["spoken_line"] = spoken_template(rec)
+        rec.update(skip=True, reason_code="too_small", reason=reason_text("too_small", lang), pct=pct)
+        rec["spoken_line"] = spoken_template(rec, lang)
         return rec
-    if reason is None:
-        reason = "Aaj achha din tha, thoda zyada bachaya" if ev["day_type"] == "good" else "Aam din, thoda sa bachaya"
-    rec.update(pct=pct, amount=amount, reason=reason, used_fallback=used_fb)
-    rec["spoken_line"] = spoken_template(rec)
+    code = "good_day" if ev["day_type"] == "good" else "normal_day"
+    rec.update(pct=pct, amount=amount, reason_code=code, reason=reason or reason_text(code, lang),
+               llm_reason=reason, llm_lang=lang if reason else None, used_fallback=used_fb)
+    rec["spoken_line"] = spoken_template(rec, lang)
     return rec
 
 
-def spoken_template(rec):
+def spoken_template(rec, lang="hi"):
     s = rec.get("settlement") or 0
     if rec.get("skip"):
         if rec.get("reason_code") == "no_data":
-            return "Aaj ka data abhi nahi aaya."
-        return f"Aaj gullak mein kuch nahi daala. {rec['reason']}. Poore Rs {rs(s)} aapke paas."
-    return f"Aaj Rs {rs(s)} aaye. Rs {rs(rec['amount'])} gullak mein, aapke paas Rs {rs(s - rec['amount'])}."
+            return reason_text("no_data", lang)
+        why = reason_text(rec["reason_code"], lang, **(rec.get("reason_kw") or {}))
+        return T(lang, "sp_skip", why=why, s=rs(s))
+    return T(lang, "sp_saved", s=rs(s), a=rs(rec["amount"]), k=rs(s - rec["amount"]))
 
 
-def guard_spoken(line, rec, extra_allowed=()):
+def entry_reason(entry, lang="hi"):
+    """Reason for a history entry in the current language (LLM text only if written in that language)."""
+    if entry.get("llm_reason") and entry.get("llm_lang") == lang:
+        return entry["llm_reason"]
+    code = entry.get("reason_code")
+    if code:
+        return reason_text(code, lang, **(entry.get("reason_kw") or {}))
+    return entry.get("reason", "")
+
+
+def guard_spoken(line, rec, extra_allowed=(), lang="hi"):
     """Use the LLM line only if every number in it came from code."""
     if not line:
-        return spoken_template(rec)
+        return spoken_template(rec, lang)
     s = int(rec.get("settlement") or 0)
     allowed = {s, int(rec.get("amount", 0)), s - int(rec.get("amount", 0)), *[int(x) for x in extra_allowed]}
     if numbers_in(line) - allowed:
-        return spoken_template(rec)
+        return spoken_template(rec, lang)
     return _short(line, 20)
 
 
 # ---------------------------------------------------------------- state changes
-def _log(state, rec, action, amount=None, reason=None):
+def _log(state, rec, action, amount=None, reason_code=None):
     state.setdefault("history", []).append({
         "date": rec["date"], "settlement": rec.get("settlement"), "pct": rec.get("pct", 0),
         "amount": rec.get("amount", 0) if amount is None else amount, "action": action,
-        "reason": rec.get("reason", "") if reason is None else reason,
+        "reason_code": reason_code or rec.get("reason_code"),
+        "reason_kw": {} if reason_code else (rec.get("reason_kw") or {}),
+        "llm_reason": None if reason_code else rec.get("llm_reason"),
+        "llm_lang": None if reason_code else rec.get("llm_lang"),
+        "reason": rec.get("reason", ""),
     })
 
 
@@ -224,7 +240,7 @@ def apply_skip(state, rec):
 
 
 def apply_decline(state, rec):
-    _log(state, rec, "declined", amount=0, reason="Aapne mana kiya")
+    _log(state, rec, "declined", amount=0, reason_code="declined")
 
 
 def suggest_answer(state, rec, yes):
@@ -259,20 +275,21 @@ def process_day(state, rec):
     return state
 
 
-def withdraw(state, amount, day):
+def withdraw(state, amount, day, lang="hi"):
     try:
         amount = int(amount)
     except (TypeError, ValueError):
-        return False, "Rakam samajh nahi aayi."
+        return False, T(lang, "wd_bad_amount")
     bal = int(state.get("balance", 0))
     if amount <= 0:
-        return False, "Rakam Rs 1 se zyada honi chahiye."
+        return False, T(lang, "wd_min")
     if amount > bal:
-        return False, f"Gullak mein sirf Rs {rs(bal)} hai. Itna nahi nikaal sakte."
+        return False, T(lang, "wd_too_much", a=rs(bal))
     state["balance"] = bal - amount
     state.setdefault("history", []).append({"date": _d(day).isoformat(), "settlement": None, "pct": 0,
-                                            "amount": amount, "action": "withdrawn", "reason": "Aapne nikaala"})
-    return True, f"Rs {rs(amount)} aapke account mein (demo). Gullak mein Rs {rs(state['balance'])} bache."
+                                            "amount": amount, "action": "withdrawn", "reason_code": "withdrawn",
+                                            "reason_kw": {}, "reason": ""})
+    return True, T(lang, "wd_done", a=rs(amount), left=rs(state["balance"]))
 
 
 def set_mode(state, mode):
@@ -307,13 +324,14 @@ def goal_progress(state):
     return min(1.0, state.get("balance", 0) / target) if target else 0.0
 
 
-def goal_status(state):
+def goal_status(state, lang="hi"):
     g = state.get("goal") or {}
+    name = goal_label(lang, g.get("name", "Bas bachat"))
     p = goal_progress(state)
     if p >= 1.0:
         return {"reached": True, "progress": 1.0,
-                "message": f"Badhai ho! {g.get('name', 'Goal')} ka lakshya poora. Rs {rs(state.get('balance', 0))} jama. Naya goal chunein?"}
-    return {"reached": False, "progress": p, "message": f"{g.get('name', 'Goal')} {int(p * 100)}%"}
+                "message": T(lang, "goal_reached", goal=name, a=rs(state.get("balance", 0)))}
+    return {"reached": False, "progress": p, "message": T(lang, "goal_progress", goal=name, pct=int(p * 100))}
 
 
 def week_drop(settlements, day):
@@ -348,44 +366,50 @@ def backtest(settlements, obligations, cap_pct, today, days=30):
             "sum_check": sum(h["amount"] for h in saved)}
 
 
-def summary_line(state, day):
+def summary_line(state, day, lang="hi"):
     """One line for a closing briefing."""
     if not state or not state.get("opted_in"):
         return ""
     key = _d(day).isoformat()
     todays = [h for h in state.get("history", []) if h["date"] == key and h["action"] in ("saved", "skipped", "declined")]
-    g = goal_status(state)
-    goal_part = f"{(state.get('goal') or {}).get('name', 'Goal')} goal {int(g['progress'] * 100)}%."
+    goal = goal_label(lang, (state.get("goal") or {}).get("name", "Bas bachat"))
+    pct = int(goal_status(state, lang)["progress"] * 100)
     if todays and todays[-1]["action"] == "saved":
-        return f"Aaj Rs {rs(todays[-1]['amount'])} gullak mein gaye. {goal_part}"
+        return T(lang, "sum_saved", a=rs(todays[-1]["amount"]), goal=goal, pct=pct)
     if todays and todays[-1]["action"] == "skipped":
-        return f"Aaj gullak nahi bhara ({todays[-1]['reason'].lower()}). {goal_part}"
-    return f"Gullak mein Rs {rs(state.get('balance', 0))} jama. {goal_part}"
+        return T(lang, "sum_skipped", why=entry_reason(todays[-1], lang), goal=goal, pct=pct)
+    return T(lang, "sum_balance", a=rs(state.get("balance", 0)), goal=goal, pct=pct)
 
 
 # ---------------------------------------------------------------- voice / text commands
 _NUM_WORDS = {"ek": 1, "do": 2, "teen": 3, "char": 4, "chaar": 4, "paanch": 5, "panch": 5, "chhe": 6, "che": 6,
-              "saat": 7, "aath": 8, "nau": 9, "das": 10, "bees": 20, "pachaas": 50, "pachas": 50}
-_HALF = {"dedh": 1.5, "dhai": 2.5, "dhaai": 2.5, "adhai": 2.5}
+              "saat": 7, "aath": 8, "nau": 9, "das": 10, "bees": 20, "pachaas": 50, "pachas": 50,
+              "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "ten": 10, "twenty": 20, "fifty": 50,
+              "एक": 1, "दो": 2, "तीन": 3, "चार": 4, "पांच": 5, "पाँच": 5, "छह": 6, "छः": 6, "सात": 7, "आठ": 8,
+              "नौ": 9, "दस": 10, "बीस": 20, "पचास": 50}
+_HALF = {"dedh": 1.5, "dhai": 2.5, "dhaai": 2.5, "adhai": 2.5, "डेढ़": 1.5, "ढाई": 2.5}
 _MULT = {"sau": 100, "so": 100, "hazar": 1000, "hazaar": 1000, "hajar": 1000, "hazzar": 1000, "hajaar": 1000,
-         "thousand": 1000, "hundred": 100}
-_ALL = {"sab", "saara", "sara", "poora", "pura", "saare", "sare", "all"}
-_GOAL_WORDS = {"diwali": "Diwali", "shaadi": "Shaadi", "shadi": "Shaadi", "emergency": "Emergency",
-               "dukaan": "Dukaan", "dukan": "Dukaan", "saaman": "Dukaan", "saman": "Dukaan"}
+         "thousand": 1000, "hundred": 100, "सौ": 100, "हज़ार": 1000, "हजार": 1000}
+_ALL = {"sab", "saara", "sara", "poora", "pura", "saare", "sare", "all", "everything", "सब", "सारा", "सारे", "पूरा"}
+_GOAL_WORDS = {"diwali": "Diwali", "shaadi": "Shaadi", "shadi": "Shaadi", "wedding": "Shaadi", "emergency": "Emergency",
+               "dukaan": "Dukaan", "dukan": "Dukaan", "saaman": "Dukaan", "saman": "Dukaan", "stock": "Dukaan",
+               "दिवाली": "Diwali", "शादी": "Shaadi", "इमरजेंसी": "Emergency", "दुकान": "Dukaan", "सामान": "Dukaan"}
+_DEV_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
+
+
+def _words(t):
+    return re.findall(r"[a-zऀ-ॿ]+", t)
 
 
 def parse_amount(text):
-    """Digits ('2000', '2,000', '2k') or Hindi words ('do hazar', 'paanch sau', 'dhai hazar').
+    """Digits ('2000', '2,000', '2k', '२०००') or words ('do hazar', 'दो हज़ार', 'two thousand').
     Returns int, 'all', or None."""
-    t = (text or "").lower()
-    m = re.search(r"(\d[\d,]*)\s*(k|hazar|hazaar|thousand)?\b", t)
-    if m:
+    t = (text or "").lower().translate(_DEV_DIGITS)
+    m = re.search(r"(\d[\d,]*)\s*(k|hazar|hazaar|thousand|हज़ार|हजार)?", t)
+    if m and "%" not in t[m.end():m.end() + 2] and not re.match(r"\s*(percent|pratishat|प्रतिशत)", t[m.end():]):
         n = int(m.group(1).replace(",", ""))
-        if m.group(2):
-            n *= 1000
-        if "%" not in t[m.end():m.end() + 2]:
-            return n
-    words = re.findall(r"[a-z]+", t)
+        return n * 1000 if m.group(2) else n
+    words = _words(t)
     for i, w in enumerate(words):
         if w in _MULT:
             prev = words[i - 1] if i > 0 else ""
@@ -396,36 +420,45 @@ def parse_amount(text):
     return None
 
 
+_WITHDRAW = r"nikal|nikaal|withdraw|take out|wapas chahiye|de do|निकाल|निकालो|निकालना"
+_CAP = r"limit|cap|pratishat|percent|%|लिमिट|प्रतिशत"
+_SAVE_FOR = r"bacha|goal|lakshya|liye|save for|saving for|बचा|लक्ष्य|लिए"
+_PAUSE = r"band|rok|ruk|pause|stop|बंद|रोक|रुक"
+_RESUME = r"chalu|shuru|resume|start|phir se|चालू|शुरू|फिर से"
+_STATUS = r"kitna|kitne|balance|status|jama|haal|how much|कितना|कितने|बैलेंस|जमा"
+
+
 def parse_command(text):
-    """Deterministic Hinglish command parser (used when the LLM is down, and to
-    cross-check the LLM). Money commands always need confirmation."""
-    t = (text or "").lower().strip()
-    words = set(re.findall(r"[a-z]+", t))
+    """Deterministic command parser (Hinglish, Hindi script, English). Used when the LLM is
+    down and to cross-check it. Money commands always need confirmation."""
+    t = (text or "").lower().strip().translate(_DEV_DIGITS)
+    words = set(_words(t))
     amount = parse_amount(t)
     out = {"intent": "none", "amount": 0, "goal_name": None, "cap": None, "needs_confirm": False, "question": None}
 
-    if re.search(r"nikal|nikaal|withdraw|wapas chahiye|de do", t) or (amount and re.search(r"\bse\b", t) and "gullak" in t):
+    from_gullak = ("gullak" in t or "गुल्लक" in t) and re.search(r"\bse\b|से|from", t)
+    if re.search(_WITHDRAW, t) or (amount and from_gullak):
         out.update(intent="withdraw", amount=amount or 0, needs_confirm=True)
         if not amount:
-            out["question"] = "Kitne paise nikaalne hain?"
+            out["question"] = "q_how_much"
         return out
-    if re.search(r"limit|cap|pratishat|percent|%", t):
-        m = re.search(r"(\d+(?:\.\d+)?)\s*(%|percent|pratishat)?", t)
+    if re.search(_CAP, t):
+        m = re.search(r"(\d+(?:\.\d+)?)", t)
         out.update(intent="change_cap", cap=float(m.group(1)) if m else None, needs_confirm=True)
         if out["cap"] is None:
-            out["question"] = "Kitna pratishat rakhein? 1, 2 ya 3?"
+            out["question"] = "q_cap"
         return out
-    if words & set(_GOAL_WORDS) and re.search(r"bacha|goal|lakshya|liye", t):
+    if words & set(_GOAL_WORDS) and re.search(_SAVE_FOR, t):
         name = next(_GOAL_WORDS[w] for w in _GOAL_WORDS if w in words)
         out.update(intent="set_goal", goal_name=name, amount=amount if isinstance(amount, int) else 0, needs_confirm=True)
         return out
-    if re.search(r"band|rok|ruk|pause|stop", t):
+    if re.search(_PAUSE, t):
         out["intent"] = "pause"
         return out
-    if re.search(r"chalu|shuru|resume|start|phir se", t):
+    if re.search(_RESUME, t):
         out["intent"] = "resume"
         return out
-    if re.search(r"kitna|kitne|balance|status|jama|haal", t):
+    if re.search(_STATUS, t):
         out["intent"] = "status"
         return out
     return out
@@ -434,10 +467,12 @@ def parse_command(text):
 INTENTS = {"set_goal", "pause", "resume", "withdraw", "change_cap", "status", "none"}
 
 
-def validate_command(llm_out, text, state):
+def validate_command(llm_out, text, state, lang="hi"):
     """Merge an LLM reading with the deterministic parse. Code wins on numbers;
-    every money action needs confirmation no matter what the text or model says."""
+    every money action needs confirmation no matter what the text or model says.
+    `question` in the result is ready-to-show text in `lang`."""
     base = parse_command(text)
+    llm_question = None
     if isinstance(llm_out, dict) and llm_out.get("intent") in INTENTS:
         intent = llm_out["intent"]
         if base["intent"] != "none" and base["intent"] != intent:
@@ -446,22 +481,20 @@ def validate_command(llm_out, text, state):
         if intent == "set_goal" and not base.get("goal_name"):
             name = str(llm_out.get("goal_name") or "").strip().title()
             base["goal_name"] = name if name in GOALS else None
-        # an LLM amount is only accepted if that number literally appears in the user's text
         if not base.get("amount") and llm_out.get("amount"):
             try:
                 a = int(float(llm_out["amount"]))
-                if a in numbers_in(text):
+                if a in numbers_in((text or "").translate(_DEV_DIGITS)):
                     base["amount"] = a
             except (TypeError, ValueError):
                 pass
         if llm_out.get("question") and base["intent"] == "none":
-            base["question"] = _short(llm_out["question"], 12)
+            llm_question = _short(llm_out["question"], 12)
     if base["intent"] == "withdraw":
         if base["amount"] == "all":
             base["amount"] = int(state.get("balance", 0))
         base["needs_confirm"] = True
-        if not base["amount"]:
-            base["question"] = "Kitne paise nikaalne hain?"
+        base["question"] = None if base["amount"] else "q_how_much"
     if base["intent"] == "change_cap":
         base["needs_confirm"] = True
         if base.get("cap") is not None:
@@ -469,5 +502,7 @@ def validate_command(llm_out, text, state):
     if base["intent"] == "set_goal":
         base["needs_confirm"] = True
     if base["intent"] == "none" and not base.get("question"):
-        base["question"] = "Samajh nahi aaya. Gullak band karna hai, paise nikaalne hain, ya balance dekhna hai?"
+        base["question"] = "q_unknown"
+    if base.get("question") in ("q_how_much", "q_cap", "q_unknown"):
+        base["question"] = llm_question or T(lang, base["question"])
     return base

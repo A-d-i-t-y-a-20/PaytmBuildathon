@@ -298,18 +298,28 @@ def net_profit(extra_sales, cost, margin=MARGIN):
 
 
 # ---------------------------------------------------------------- merchant commands
+_CONTACT = ("sms", "whatsapp", "message bhej", "sabko bhej", "number do", "number dikhao", "naam dikhao", "list do",
+            "phone number", "their numbers", "send everyone", "message everyone", "customer list",
+            "मैसेज", "नंबर", "नाम दिखाओ", "सबको भेज", "लिस्ट")
+_STOP = ("ruko", "rok", "band", "stop", "रोको", "रोक", "बंद")
+_RESULT = ("nateeja", "result", "kitna fayda", "kaisa raha", "how did", "नतीजा", "कितना फ़ायदा", "कैसा रहा")
+_WIN_BACK = ("khali", "dopahar", "kam log", "nahi aate", "nahi aa rahe", "grahak", "customer", "wapas", "quiet",
+             "empty", "slow", "afternoon", "not coming", "come back", "regulars",
+             "खाली", "दोपहर", "कम लोग", "नहीं आते", "नहीं आ रहे", "ग्राहक", "वापस")
+
+
 def parse_ask(text):
-    """Deterministic reading of what the merchant said (fallback + cross-check)."""
+    """Deterministic reading of what the merchant said (Hinglish, Hindi script or English)."""
     t = (text or "").lower()
-    if any(k in t for k in ("sms", "whatsapp", "message bhej", "sabko bhej", "number do", "number dikhao", "naam dikhao", "list do")):
+    if any(k in t for k in _CONTACT):
         return {"intent": "refuse_contact", "question": None}
-    if any(k in t for k in ("ruko", "rok", "band", "stop")):
+    if any(k in t for k in _STOP):
         return {"intent": "stop", "question": None}
-    if any(k in t for k in ("nateeja", "result", "kitna fayda", "kaisa raha")):
+    if any(k in t for k in _RESULT):
         return {"intent": "result", "question": None}
-    if any(k in t for k in ("khali", "dopahar", "kam log", "nahi aate", "nahi aa rahe", "grahak", "customer", "wapas", "quiet", "empty", "slow")):
+    if any(k in t for k in _WIN_BACK):
         return {"intent": "win_back", "question": None}
-    return {"intent": "none", "question": "Dukaan kab khali rehti hai, ya kaun se grahak nahi aa rahe?"}
+    return {"intent": "none", "question": None}
 
 
 def validate_ask(llm_out, text):

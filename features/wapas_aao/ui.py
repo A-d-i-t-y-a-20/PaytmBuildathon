@@ -2,16 +2,22 @@
 
 Merchant journey: ask -> one finding -> priced offer -> approve -> live -> result (profit after cost).
 The merchant never sees customer names, numbers or ids -- only counts and rupees.
+All text comes from features/common/i18n.py (Hindi / English).
 """
 import streamlit as st
 
 from features.common import ui_kit as K
+from features.common.i18n import MONTHS
 from features.gullak.engine import rs
 from features.wapas_aao import ai
 from features.wapas_aao import engine as E
 
 NAV_KEY = "wapas_aao"
-EXAMPLES = ["Dopahar mein dukaan khali rehti hai", "Purane grahak nahi aa rahe"]
+t = K.t
+
+
+def _lang():
+    return K.lang()
 
 
 def _data():
@@ -25,10 +31,9 @@ def _data():
 def _proposal(offer_id=None):
     P, C, _ = _data()
     oid = offer_id or st.session_state.get("wa_offer_id", E.DEFAULT_OFFER)
-    key = ("wa_prop", oid)
-    if st.session_state.get("wa_prop_key") != key:
+    if st.session_state.get("wa_prop_key") != oid:
         st.session_state.wa_prop = E.build_proposal(P, C, offer_id=oid)
-        st.session_state.wa_prop_key = key
+        st.session_state.wa_prop_key = oid
     return st.session_state.wa_prop
 
 
@@ -39,70 +44,69 @@ def _stage(s):
 
 def _window(q):
     def h(x):
-        return f"{x - 12 if x > 12 else x}"
-    return f"{h(q['start'])}–{h(q['end'])} baje"
+        return x - 12 if x > 12 else x
+    return t("window", a=h(q["start"]), b=h(q["end"]))
 
 
-def _offer_hi(o):
-    if o["kind"] == "flat":
-        return f"₹{rs(o['min_bill'])}+ ke bill par ₹{o['value']} chhoot"
-    if o["kind"] == "free_item":
-        return f"₹{rs(o['min_bill'])}+ ke bill par biscuit packet free"
-    return f"Har 5vi visit par ₹{o['value']} wapas (₹{o['min_bill']}+ bill)"
+def _offer_text(o):
+    key = {"flat": "offer_flat", "free_item": "offer_free", "stamp": "offer_stamp"}[o["kind"]]
+    return t(key, v=o["value"], min=rs(o["min_bill"]))
+
+
+def _end_label(iso):
+    return f"{int(iso[8:])} {MONTHS[_lang()][int(iso[5:7]) - 1]}"
 
 
 # ---------------------------------------------------------------- stages
 def _ask():
-    K.card('<div class="kx-mid">Dukaan mein kya pareshani hai?</div>'
-           '<div class="kx-muted">Bolo ya likho. Jaise: "Dopahar mein dukaan khali rehti hai"</div>', "blue")
-    heard = K.listen("Mic dabao aur bolo", key="wa_mic")
-    pick = st.pills("Udaharan", EXAMPLES, key="wa_example", label_visibility="collapsed")
-    text = st.text_input("Likho", value=heard or pick or "", key=f"wa_text_{heard}_{pick}", label_visibility="collapsed",
-                         placeholder="Apni baat likho")
-    if st.button("Munim se poocho", type="primary", width="stretch", key="wa_ask_go", disabled=not text.strip()):
-        llm_out = ai.understand(text) if ai.available() else None
+    K.card(f'<div class="kx-mid">{t("ask_title")}</div><div class="kx-muted">{t("ask_sub")}</div>', "blue")
+    heard = K.listen(t("mic_label"), key="wa_mic")
+    examples = [t("ex1"), t("ex2")]
+    pick = st.pills("examples", examples, key=f"wa_example_{_lang()}", label_visibility="collapsed")
+    text = st.text_input("text", value=heard or pick or "", key=f"wa_text_{heard}_{pick}", label_visibility="collapsed",
+                         placeholder=t("ph_text"))
+    if st.button(t("btn_ask"), type="primary", width="stretch", key="wa_ask_go", disabled=not text.strip()):
+        llm_out = ai.understand(text, _lang()) if ai.available() else None
         v = E.validate_ask(llm_out, text)
         if v.get("offer_id"):
             st.session_state.wa_offer_id = v["offer_id"]
+        st.session_state.wa_note = None
         if v["intent"] == "win_back":
             st.session_state.wa_said = text
             _stage("finding")
         elif v["intent"] == "refuse_contact":
-            st.session_state.wa_note = ("Hum kisi grahak ka naam ya number nahi dikhate, aur sirf unhi tak pahunchte hain "
-                                        "jo raazi hain. Unke liye offer banayein?")
+            st.session_state.wa_note = "note_refuse"
         elif v["intent"] == "result" and st.session_state.get("wa_running"):
             _stage("result")
         else:
-            st.session_state.wa_note = v.get("question") or "Thoda aur batao?"
+            st.session_state.wa_note = "note_q"
         st.rerun()
     if st.session_state.get("wa_note"):
-        st.markdown(f'<div class="kx-say">{st.session_state.wa_note}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kx-say">{t(st.session_state.wa_note)}</div>', unsafe_allow_html=True)
 
 
 def _finding():
     pr = _proposal()
     q = pr["quiet"]
-    facts = {"drop_pct": q["drop_pct"], "window": _window(q), "lapsed": pr["lapsed"]}
-    default = (f"Dopahar {_window(q)} aapki bikri baaki din se {q['drop_pct']}% kam hai.",
-               f"{pr['lapsed']} pakke grahak 3 hafte se nahi aaye.")
-    lines = st.session_state.get("wa_finding")
-    if lines is None:
-        lines = default
-        if ai.available():
-            out = ai.phrase({**facts, "offer": _offer_hi(pr["offer"])})
-            if out and out.get("finding_line") and ai.numbers_ok(out["finding_line"], facts):
-                lines = (out["finding_line"], "")
-        st.session_state.wa_finding = lines
+    line1 = t("find1", w=_window(q), pct=q["drop_pct"])
+    line2 = t("find2", n=pr["lapsed"])
+    if ai.available():
+        cache = st.session_state.setdefault("wa_finding_cache", {})
+        if _lang() not in cache:
+            facts = {"drop_pct": q["drop_pct"], "window": _window(q), "lapsed": pr["lapsed"]}
+            out = ai.phrase({**facts, "offer": _offer_text(pr["offer"])}, _lang())
+            cache[_lang()] = out["finding_line"] if out and out.get("finding_line") and ai.numbers_ok(out["finding_line"], facts) else None
+        if cache[_lang()]:
+            line1, line2 = cache[_lang()], ""
     if st.session_state.get("wa_said"):
         st.markdown(f'<div class="kx-say" style="border-radius:16px 16px 4px 16px;background:#0B2447;color:#fff;margin-left:auto;'
                     f'max-width:85%">🎤 {st.session_state.wa_said}</div>', unsafe_allow_html=True)
-    K.card(f'<div class="kx-mid">{lines[0]}</div>'
-           + (f'<div class="kx-line">{lines[1]}</div>' if lines[1] else "")
-           + '<div class="kx-line" style="margin-top:12px"><b>Unhe dopahar mein wapas bulayein?</b></div>', "blue")
+    K.card(f'<div class="kx-mid">{line1}</div>' + (f'<div class="kx-line">{line2}</div>' if line2 else "")
+           + f'<div class="kx-line" style="margin-top:12px"><b>{t("find_q")}</b></div>', "blue")
     c1, c2 = st.columns(2)
-    if c1.button("Haan, kuch sujhao", type="primary", width="stretch", key="wa_find_yes"):
+    if c1.button(t("btn_suggest"), type="primary", width="stretch", key="wa_find_yes"):
         _stage("proposal")
-    if c2.button("Abhi nahi", width="stretch", key="wa_find_no"):
+    if c2.button(t("btn_not_now"), width="stretch", key="wa_find_no"):
         _stage("ask")
 
 
@@ -112,87 +116,89 @@ def _split_bar(r):
     return (f'<div class="kx-split"><i style="width:{w(r["rewards"])}%;background:{K.GREEN}"></i>'
             f'<i style="width:{w(r["paytm"])}%;background:{K.BLUE}"></i>'
             f'<i style="width:{w(r["unreachable"])}%;background:#D0D5DD"></i></div>'
-            f'<div class="kx-legend"><span style="background:{K.GREEN}"></span>{r["rewards"]} rewards member '
-            f'&nbsp; <span style="background:{K.BLUE}"></span>{r["paytm"]} Paytm app offer wale<br>'
-            f'<span style="background:#D0D5DD"></span>{r["unreachable"]} se sampark nahi (unhone haan nahi kaha)</div>')
+            f'<div class="kx-legend"><span style="background:{K.GREEN}"></span>{t("leg_rewards", n=r["rewards"])}<br>'
+            f'<span style="background:{K.BLUE}"></span>{t("leg_paytm", n=r["paytm"])}<br>'
+            f'<span style="background:#D0D5DD"></span>{t("leg_none", n=r["unreachable"])}</div>')
 
 
 def _proposal_view():
     pr = _proposal()
     o, r, c, q = pr["offer"], pr["reach"], pr["cost"], pr["quiet"]
-    end = f"{int(pr['end_date'][8:])} Dec"
-    K.card(f'<div class="kx-kicker">Munim ka sujhaav</div><div class="kx-mid">{_offer_hi(o)}</div>'
-           f'<div class="kx-line">Dopahar {_window(q)} · {pr["days"]} din ({end} tak)</div>', "blue")
-    K.card(f'<div class="kx-kicker">Kitne grahakon tak pahunchega</div>'
-           f'<div class="kx-mid">{r["reachable"]} mein se {pr["lapsed"]}</div>{_split_bar(r)}')
-    ok = "✓ Chhoot aapke munafe ke aadhe se kam" if c["ok"] else "Offer mehenga tha, min bill badhaya"
-    K.card(f'<div class="kx-row"><span>Chhoot bill ka</span><b>{c["cost_pct"]:g}%</b></div>'
-           f'<div class="kx-row"><span>Aapka munafa (andaaza)</span><b>~{c["margin_pct"]}%</b></div>'
-           f'<div class="kx-row"><span>Zyada se zyada kharcha</span><b>₹{rs(pr["budget"])}</b></div>'
-           f'<span class="kx-chip green">{ok}</span>')
-    with st.expander("Doosra offer dekho"):
-        labels = {oid: _offer_hi(off) for oid, off in E.OFFER_LIBRARY.items()}
-        choice = st.radio("Offer", list(labels), format_func=lambda k: labels[k], index=list(labels).index(o["id"]),
-                          key="wa_offer_radio", label_visibility="collapsed")
+    K.card(f'<div class="kx-kicker">{t("prop_kicker")}</div><div class="kx-mid">{_offer_text(o)}</div>'
+           f'<div class="kx-line">{t("prop_when", w=_window(q), d=pr["days"], end=_end_label(pr["end_date"]))}</div>', "blue")
+    K.card(f'<div class="kx-kicker">{t("reach_kicker")}</div>'
+           f'<div class="kx-mid">{t("reach_big", r=r["reachable"], total=pr["lapsed"])}</div>{_split_bar(r)}')
+    K.card(f'<div class="kx-row"><span>{t("cost_share")}</span><b>{c["cost_pct"]:g}%</b></div>'
+           f'<div class="kx-row"><span>{t("cost_margin")}</span><b>~{c["margin_pct"]}%</b></div>'
+           f'<div class="kx-row"><span>{t("cost_max")}</span><b>₹{rs(pr["budget"])}</b></div>'
+           f'<span class="kx-chip green">{t("cost_ok") if not o.get("repriced_from") else t("cost_repriced")}</span>')
+    with st.expander(t("other_offers")):
+        ids = list(E.OFFER_LIBRARY)
+        choice = st.radio("offer", ids, format_func=lambda k: _offer_text(E.OFFER_LIBRARY[k]), index=ids.index(o["id"]),
+                          key=f"wa_offer_radio_{_lang()}", label_visibility="collapsed")
         if choice != o["id"]:
             st.session_state.wa_offer_id = choice
             st.rerun()
-    st.markdown(f'<div class="kx-muted">🔒 Aapko grahakon ke naam ya number nahi dikhenge, sirf ginti aur rupaye.<br>'
-                f'📏 Sahi hisaab ke liye {pr["holdout_n"]} grahakon ko offer nahi bhejenge, unse tulna karenge.</div>',
+    st.markdown(f'<div class="kx-muted">{t("privacy_line")}<br>{t("holdout_line", n=pr["holdout_n"])}</div>',
                 unsafe_allow_html=True)
     st.write("")
     c1, c2 = st.columns(2)
-    if c1.button("Haan, chalao", type="primary", width="stretch", key="wa_run"):
+    if c1.button(t("btn_run"), type="primary", width="stretch", key="wa_run"):
         st.session_state.wa_running = True
         _stage("running")
-    if c2.button("Wapas", width="stretch", key="wa_prop_back"):
+    if c2.button(t("btn_back"), width="stretch", key="wa_prop_back"):
         _stage("finding")
-    st.caption("Billing: Soundbox plan mein shaamil (concept). Koi per-payment fee nahi.")
+    st.caption(t("billing"))
 
 
-def _phones(pr):
+def _customer_view(pr):
+    """What the customer sees -- collapsed by default; it explains reach to the shopkeeper/judges."""
     o = pr["offer"]
-    t1, t2 = st.tabs(["Grahak: Paytm app", "Grahak: doosra UPI app"])
-    with t1:
-        if o["kind"] == "flat":
-            res = E.apply_offer(420, o, consented=True)
-            body = (f'<div style="font-size:14px;color:#5B6472">Gupta General Store ✓</div>'
-                    f'<div style="font-size:30px;font-weight:800;margin:8px 0"><span class="kx-strike">₹{res["bill"]}</span>₹{res["pay"]}</div>'
-                    f'<div class="kx-chip green" style="margin:0">✓ Wapas Aao offer laga: −₹{res["discount"]}</div>'
-                    f'<div style="font-size:13px;color:#5B6472;margin-top:8px">Dukaan ne chhoot di. Seedha kam paisa, koi cashback nahi.</div>')
-        else:
-            body = f'<div style="font-size:16px">{_offer_hi(o)}</div><div style="font-size:13px;color:#5B6472">Counter par milega.</div>'
-        st.markdown(f'<div class="kx-phone"><div class="bar">Paytm · Scan & Pay</div>{body}</div>', unsafe_allow_html=True)
-        st.caption("Sirf unhe dikhta hai jinhone Paytm app mein shop offers chalu kiye. Hafte mein max 1 notification. Payment screen par koi consent pop-up nahi.")
-    with t2:
-        sp = E.stamp_progress(4)
-        st.markdown('<div class="kx-phone"><div class="bar other">Koi bhi UPI app</div>'
-                    '<div style="font-size:24px;font-weight:800">₹268 bheje gaye ✓</div>'
-                    '<div class="kx-chip grey" style="margin:6px 0 0">Is screen par koi badlav nahi</div></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kx-say">🔊 Soundbox: "₹268 prapt hue. Rewards: {sp["of"]} mein se {sp["stamps"]} visit poori. '
-                    f'Agli baar ₹30 wapas."</div>', unsafe_allow_html=True)
-        st.caption("Grahak counter ke alag 'Rewards join' QR se ek baar judta hai. 5vi visit par ₹30 refund unke apne app mein "
-                   "(Paytm legal ki manzoori baaki; tab tak dukaandaar bill se ₹30 kam karta hai). 'Chhodo' dabate hi data mit jaata hai.")
+    with st.expander(t("cv_title")):
+        t1, t2 = st.tabs([t("cv_tab1"), t("cv_tab2")])
+        with t1:
+            if o["kind"] == "flat":
+                res = E.apply_offer(420, o, consented=True)
+                body = (f'<div style="font-size:14px;color:#5B6472">Gupta General Store ✓</div>'
+                        f'<div style="font-size:30px;font-weight:800;margin:8px 0"><span class="kx-strike">₹{res["bill"]}</span>₹{res["pay"]}</div>'
+                        f'<div class="kx-chip green" style="margin:0">{t("cv_applied", d=res["discount"])}</div>'
+                        f'<div style="font-size:13px;color:#5B6472;margin-top:8px">{t("cv_note1")}</div>')
+            else:
+                body = f'<div style="font-size:16px">{_offer_text(o)}</div><div style="font-size:13px;color:#5B6472">{t("cv_counter")}</div>'
+            st.markdown(f'<div class="kx-phone"><div class="bar">{t("cv_bar1")}</div>{body}</div>', unsafe_allow_html=True)
+            st.caption(t("cv_cap1"))
+        with t2:
+            st.markdown(f'<div class="kx-phone"><div class="bar other">{t("cv_bar2")}</div>'
+                        f'<div style="font-size:24px;font-weight:800">{t("cv_paid")}</div>'
+                        f'<div class="kx-chip grey" style="margin:6px 0 0">{t("cv_nochange")}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="kx-say">{t("soundbox")} {t("cv_sb2", n=E.stamp_progress(4)["stamps"])}</div>',
+                        unsafe_allow_html=True)
+            st.caption(t("cv_cap2"))
+
+
+def _soundbox_text(res):
+    if res.get("applied"):
+        return t("sb_offer", p=int(res["pay"]), d=int(res["discount"]), b=int(res["bill"]))
+    return t("sb_plain", p=int(res["pay"]))
 
 
 def _running():
     pr = _proposal()
     _, _, out = _data()
-    K.card(f'<div class="kx-kicker">Offer chalu · {_offer_hi(pr["offer"])}</div>'
-           f'<div class="kx-mid">Aaj {out["day1_redemptions"]} grahakon ko chhoot mili</div>'
-           f'<div class="kx-row"><span>Kharcha</span><b>₹{out["day1_redemptions"] * pr["offer"]["value"]} / ₹{rs(pr["budget"])}</b></div>'
-           f'<div class="kx-row"><span>Naye rewards member</span><b>{out["new_rewards_members_day1"]}</b></div>', "green")
-    line = E.soundbox_line(E.apply_offer(420, pr["offer"], consented=True))
-    st.markdown(f'<div class="kx-say">🔊 Soundbox: "{line.replace("Rs ", "₹")}"</div>', unsafe_allow_html=True)
+    K.card(f'<div class="kx-kicker">{t("run_kicker", offer=_offer_text(pr["offer"]))}</div>'
+           f'<div class="kx-mid">{t("run_title", n=out["day1_redemptions"])}</div>'
+           f'<div class="kx-row"><span>{t("spent")}</span><b>₹{out["day1_redemptions"] * pr["offer"]["value"]} / ₹{rs(pr["budget"])}</b></div>'
+           f'<div class="kx-row"><span>{t("new_members")}</span><b>{out["new_rewards_members_day1"]}</b></div>', "green")
+    line = _soundbox_text(E.apply_offer(420, pr["offer"], consented=True))
+    st.markdown(f'<div class="kx-say">{t("soundbox")} "{line}"</div>', unsafe_allow_html=True)
     K.speak(line, key="wa_sb")
     st.write("")
-    if st.button("14 din baad nateeja dekho (demo)", type="primary", width="stretch", key="wa_to_result"):
+    if st.button(t("btn_result"), type="primary", width="stretch", key="wa_to_result"):
         _stage("result")
-    if st.button("Offer roko", width="stretch", key="wa_stop"):
+    if st.button(t("btn_stop"), width="stretch", key="wa_stop"):
         st.session_state.wa_running = False
         _stage("ask")
-    st.markdown('<div class="kx-kicker" style="margin-top:14px">Grahak ko kya dikhta hai</div>', unsafe_allow_html=True)
-    _phones(pr)
+    _customer_view(pr)
 
 
 def _result():
@@ -200,38 +206,26 @@ def _result():
     _, _, out = _data()
     r = E.compute_result(out, pr)
     tone = "green" if r["net"] > 0 else "amber"
-    K.card(f'<div class="kx-kicker">{pr["days"]} din ka nateeja</div>'
+    K.card(f'<div class="kx-kicker">{t("res_kicker", d=pr["days"])}</div>'
            f'<div class="kx-big">{"+" if r["net"] >= 0 else "−"}₹{rs(abs(r["net"]))}</div>'
-           f'<div class="kx-line">Offer ke kharche ke baad extra munafa</div>'
-           f'<div class="kx-muted">Jinhe offer nahi mila, unse tulna karke</div>', tone)
-    K.card(f'<div class="kx-row"><span>Wapas aaye pakke grahak</span><b>{r["returned"]}</b></div>'
-           f'<div class="kx-row"><span>Extra bikri</span><b>₹{rs(r["extra_sales"])}</b></div>'
-           f'<div class="kx-row"><span>Us par munafa (~{r["margin_pct"]}%)</span><b>₹{rs(r["extra_profit"])}</b></div>'
-           f'<div class="kx-row"><span>Offer kharcha ({r["redemptions"]} × ₹{pr["offer"]["value"]})</span><b>−₹{rs(r["offer_cost"])}</b></div>')
-    if r["next_tip"]:
-        K.card(f'<div class="kx-kicker">Agla sujhaav</div><div class="kx-line">{r["next_tip"]}. Agli baar sirf in dino chalayein?</div>', "blue")
-    st.caption("Chhoti ginti hai, isliye yeh andaaza hai. Asli naap kai dukaanon ko mila kar hoga.")
-    if st.button("Phir se chalao", type="primary", width="stretch", key="wa_again"):
+           f'<div class="kx-line">{t("res_line")}</div><div class="kx-muted">{t("res_muted")}</div>', tone)
+    K.card(f'<div class="kx-row"><span>{t("res_back")}</span><b>{r["returned"]}</b></div>'
+           f'<div class="kx-row"><span>{t("res_sales")}</span><b>₹{rs(r["extra_sales"])}</b></div>'
+           f'<div class="kx-row"><span>{t("res_profit", m=r["margin_pct"])}</span><b>₹{rs(r["extra_profit"])}</b></div>'
+           f'<div class="kx-row"><span>{t("res_cost", n=r["redemptions"], v=pr["offer"]["value"])}</span><b>−₹{rs(r["offer_cost"])}</b></div>')
+    K.card(f'<div class="kx-kicker">{t("res_next")}</div><div class="kx-line">{t("res_tip")}</div>', "blue")
+    st.caption(t("res_small"))
+    if st.button(t("btn_again"), type="primary", width="stretch", key="wa_again"):
         _stage("proposal")
-    if st.button("Naya sawaal", width="stretch", key="wa_new"):
-        for k in ("wa_finding", "wa_said", "wa_note", "wa_running"):
+    if st.button(t("btn_new_q"), width="stretch", key="wa_new"):
+        for k in ("wa_finding_cache", "wa_said", "wa_note", "wa_running"):
             st.session_state.pop(k, None)
         _stage("ask")
 
 
 def _trust_panel():
-    with st.expander("Bharosa aur niyam (compliance)"):
-        st.markdown(
-            "- **Sirf raazi grahak:** Paytm app mein offers chalu kiye ho, ya counter par Rewards join kiya ho. Baaki ko kuch nahi bhejte.\n"
-            "- **Consent alag se:** settings ya Rewards QR par. Payment screen par kabhi nahi.\n"
-            "- **Dukaandaar ko sirf ginti:** koi naam, number ya UPI ID nahi.\n"
-            "- **Chhoot seedhi bill par:** grahak kam deta hai. Koi cashback ya wallet nahi.\n"
-            "- **Koi SMS/WhatsApp blast nahi.**\n"
-            "- **Asli taareekh:** har offer ki pakki aakhri tareekh; jhoothi jaldi nahi.\n"
-            "- **Chhodo = data mitao:** grahak ek tap mein bahar, data delete.\n"
-            "- **Kharcha seema:** chhoot munafe ke aadhe se kam, budget poora hote hi offer band.\n"
-            "- **Loan offers is flow mein nahi.**\n"
-            "- **Legal check baaki:** rewards ke liye refund ka istemaal (RBI PA niyam 2025), aur billing ka tareeka.")
+    with st.expander(t("trust_title")):
+        st.markdown(t("trust_body"))
 
 
 # ---------------------------------------------------------------- page
@@ -239,15 +233,15 @@ def render_page():
     K.inject_css()
     _data()
     with st.container(key="kx_page_wapas"):
-        K.header("Wapas Aao", "Purane pakke grahak wapas bulao. Sirf unhe jo raazi hain.")
+        K.header(t("wa_title"), t("wa_sub"))
         stage = st.session_state.get("wa_stage", "ask")
         {"ask": _ask, "finding": _finding, "proposal": _proposal_view, "running": _running, "result": _result}[stage]()
         _trust_panel()
-        if stage != "ask" and st.button("Shuru se", key="wa_restart"):
-            for k in ("wa_stage", "wa_finding", "wa_said", "wa_note", "wa_running", "wa_offer_id"):
+        if stage != "ask" and st.button(t("btn_restart"), key="wa_restart"):
+            for k in ("wa_stage", "wa_finding_cache", "wa_said", "wa_note", "wa_running", "wa_offer_id"):
                 st.session_state.pop(k, None)
             st.rerun()
-        K.foot(f"Concept · mock data · AI: {'Gemini' if ai.available() else 'fallback'} · koi asli payment ya message nahi")
+        K.foot(t("foot_wapas"))
 
 
 def render_home_card():
@@ -256,14 +250,13 @@ def render_home_card():
     pr = _proposal()
     with st.container(key="kx_card_wapas"):
         if st.session_state.get("wa_running"):
-            K.card(f'<div class="kx-kicker">🔁 Wapas Aao · Concept</div><div class="kx-mid">Offer chalu</div>'
-                   f'<div class="kx-line">{_offer_hi(pr["offer"])}</div>', "green")
-            label = "Nateeja dekho"
+            K.card(f'<div class="kx-kicker">{t("hc_wa_kicker")}</div><div class="kx-mid">{t("hc_wa_running")}</div>'
+                   f'<div class="kx-line">{_offer_text(pr["offer"])}</div>', "green")
+            label = t("btn_see_result")
         else:
-            K.card(f'<div class="kx-kicker">🔁 Wapas Aao · Concept</div>'
-                   f'<div class="kx-mid">{pr["lapsed"]} pakke grahak 3 hafte se nahi aaye</div>'
-                   f'<div class="kx-muted">Dopahar {_window(pr["quiet"])} dukaan khali rehti hai.</div>', "blue")
-            label = "Wapas bulao"
+            K.card(f'<div class="kx-kicker">{t("hc_wa_kicker")}</div><div class="kx-mid">{t("hc_wa_title", n=pr["lapsed"])}</div>'
+                   f'<div class="kx-muted">{t("hc_wa_sub", w=_window(pr["quiet"]))}</div>', "blue")
+            label = t("btn_invite_back")
         if st.button(label, key="wa_home_open", width="stretch"):
             st.session_state.nav = NAV_KEY
             st.session_state.wa_stage = "result" if st.session_state.get("wa_running") else "finding"
