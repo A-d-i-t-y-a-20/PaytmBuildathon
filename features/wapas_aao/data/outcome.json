@@ -1,0 +1,31 @@
+{
+  "mock": true,
+  "days": 14,
+  "treated_returned": 9,
+  "treated_visits": [
+    405,
+    410,
+    400,
+    402,
+    415,
+    400,
+    400,
+    418,
+    405,
+    403,
+    410,
+    400,
+    404,
+    406,
+    412,
+    400,
+    401,
+    409,
+    400,
+    400
+  ],
+  "holdout_spend_total": 400,
+  "day1_redemptions": 3,
+  "new_rewards_members_day1": 2,
+  "best_days_note": "Mangal-Budh ko asar lagbhag dugna tha"
+}

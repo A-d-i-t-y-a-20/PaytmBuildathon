@@ -1,0 +1,17 @@
+{
+  "mock": true,
+  "note": "EMI amount/next due date are read from the shared data/cash.json via adapter.py; this file only adds what that file does not have.",
+  "past_emi_due_dates": [
+    "2026-09-22",
+    "2026-10-22"
+  ],
+  "default_stock_spend_next_3_days": 1200,
+  "stock_spend_next_3_days": {
+    "2026-11-05": 2600,
+    "2026-11-25": 2600
+  },
+  "cash_by_date": {
+    "2026-10-21": 900,
+    "2026-11-21": 950
+  }
+}

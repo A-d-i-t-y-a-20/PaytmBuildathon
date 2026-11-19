@@ -1,0 +1,16 @@
+{
+  "mock": true,
+  "opted_in": false,
+  "mode": "suggest",
+  "cap_pct": 3.0,
+  "goal": {
+    "name": "Diwali",
+    "target": 10000
+  },
+  "balance": 0,
+  "yes_count": 0,
+  "suggest_days_left": 7,
+  "auto_offer_pending": false,
+  "today": "2026-11-19",
+  "history": []
+}
