@@ -1,8 +1,8 @@
 """Shared look for the Gullak and Wapas Aao features only.
 
 All CSS is scoped to containers whose key starts with "kx_" (Streamlit adds the
-class "st-key-<key>"), so the rest of the app is not restyled. One place to
-change when the final visual design (Pinterest references) arrives.
+class "st-key-<key>"). Design system: "Hyper-Saturated Fluid" -- one flat
+Cyber Yellow shout colour, a deep onyx void, glass cards, pill buttons, Inter.
 """
 import hashlib
 
@@ -10,59 +10,122 @@ import streamlit as st
 
 from features.common.i18n import T, tts_lang
 
-GREEN, GREEN_BG = "#0E8A4F", "#E9F8EF"
-AMBER, AMBER_BG = "#B45309", "#FFF4E2"
-GREY, GREY_BG = "#5B6472", "#F1F3F6"
-BLUE, BLUE_BG = "#0077C8", "#E8F5FD"
-NAVY = "#0B2447"
+# ---------------------------------------------------------------- design tokens: "Hyper-Saturated Fluid"
+SHOUT = "#FDE047"      # Cyber Yellow -- the one dominant colour, always flat
+VOID = "#0A0A0A"       # Deep Onyx background
+SURFACE = "#171717"    # Charcoal panels
+DEEP = "#262626"       # UI elements inside the void
+WHITE = "#FFFFFF"
+GREEN, GREEN_BG = "#4ADE80", "rgba(74,222,128,.10)"     # saved
+AMBER, AMBER_BG = "#FB923C", "rgba(251,146,60,.10)"     # skipped (orange, so it never reads as the shout yellow)
+GREY, GREY_BG = "#A3A3A3", "rgba(255,255,255,.04)"      # paused
+BLUE, BLUE_BG = "#60A5FA", "rgba(96,165,250,.10)"
+NAVY = VOID
+EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
 
 CSS = f"""
 <style>
-[class*="st-key-kx_"] {{ font-size: 18px; }}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+[class*="st-key-kx_"], [class*="st-key-kx_"] * {{ font-family: 'Inter', 'Noto Sans Devanagari', 'Nirmala UI', system-ui, sans-serif; }}
+[class*="st-key-kx_"] {{ font-size: 16px; color: {WHITE}; }}
 [class*="st-key-kx_page"] {{ max-width: 560px; margin: 0 auto; }}
-[class*="st-key-kx_"] p, [class*="st-key-kx_"] li, [class*="st-key-kx_"] label {{ font-size: 18px; }}
-[class*="st-key-kx_"] .stButton button {{ min-height: 52px; border-radius: 14px; font-size: 18px; font-weight: 600; }}
-[class*="st-key-kx_"] [data-testid="stCaptionContainer"] p {{ font-size: 15px; }}
-.kx-head {{ display:flex; align-items:center; gap:.6rem; margin:.2rem 0 .1rem; }}
-.kx-title {{ font-size: 30px; font-weight: 800; color: {NAVY}; line-height:1.1; }}
-.kx-sub {{ color:#5B6472; font-size:17px; margin-bottom:.8rem; }}
-.kx-badge {{ background:#EEF0F4; color:#475467; font-size:12px; font-weight:700; padding:3px 9px; border-radius:999px; letter-spacing:.3px; }}
-.kx-card {{ border-radius: 20px; padding: 18px 20px; margin: 6px 0 12px; border:1px solid #E7EAF0; background:#fff; }}
-.kx-green {{ background:{GREEN_BG}; border-color:#BFE8CF; }}
-.kx-amber {{ background:{AMBER_BG}; border-color:#F6D9A8; }}
-.kx-grey  {{ background:{GREY_BG}; border-color:#E1E4EA; }}
-.kx-blue  {{ background:{BLUE_BG}; border-color:#C3E4F8; }}
-.kx-kicker {{ font-size:15px; font-weight:600; color:#5B6472; margin-bottom:2px; }}
-.kx-big {{ font-size: 38px; font-weight: 800; color:{NAVY}; line-height:1.15; }}
-.kx-mid {{ font-size: 24px; font-weight: 700; color:{NAVY}; line-height:1.25; }}
-.kx-line {{ font-size: 18px; color:#1F2937; margin-top:6px; line-height:1.45; }}
-.kx-muted {{ font-size: 15px; color:#5B6472; margin-top:6px; line-height:1.4; }}
-.kx-chip {{ display:inline-block; font-size:15px; font-weight:700; padding:5px 12px; border-radius:999px; margin-top:8px; }}
-.kx-chip.green {{ background:{GREEN_BG}; color:{GREEN}; }}
-.kx-chip.amber {{ background:{AMBER_BG}; color:{AMBER}; }}
-.kx-chip.grey  {{ background:{GREY_BG}; color:{GREY}; }}
-.kx-chip.blue  {{ background:{BLUE_BG}; color:{BLUE}; }}
-.kx-bar {{ height:12px; background:#E7EAF0; border-radius:99px; overflow:hidden; margin-top:10px; }}
-.kx-bar > i {{ display:block; height:100%; border-radius:99px; background:{GREEN}; }}
-.kx-row {{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:8px 0; border-bottom:1px solid #EEF0F4; font-size:17px; }}
+[class*="st-key-kx_"] p, [class*="st-key-kx_"] li, [class*="st-key-kx_"] label {{ font-size: 15px; line-height: 1.6; }}
+[class*="st-key-kx_"] [data-testid="stCaptionContainer"] p {{ font-size: 13px; color: rgba(255,255,255,.5); }}
+
+/* ---------- motion */
+@keyframes kxUp {{ from {{ opacity: 0; transform: translateY(14px); }} to {{ opacity: 1; transform: none; }} }}
+@keyframes kxFloat {{ 0%, 100% {{ transform: translateY(0); }} 50% {{ transform: translateY(-4px); }} }}
+.kx-hero, .kx-card {{ animation: kxUp .55s {EASE} both; }}
+.kx-float {{ animation: kxUp .55s {EASE} both, kxFloat 6s ease-in-out 1s infinite; }}
+
+/* ---------- pill buttons (squish on press) */
+[class*="st-key-kx_"] .stButton button {{
+  min-height: 52px; border-radius: 999px !important; font-size: 15px; font-weight: 700; letter-spacing: .01em;
+  background: rgba(255,255,255,.06) !important; color: {WHITE} !important; border: 1px solid rgba(255,255,255,.18) !important;
+  transition: transform .25s {EASE}, box-shadow .25s {EASE}, background .2s; }}
+[class*="st-key-kx_"] .stButton button:hover {{ transform: scale(1.03); box-shadow: 0 10px 30px rgba(0,0,0,.45); border-color: rgba(255,255,255,.35) !important; }}
+[class*="st-key-kx_"] .stButton button:active {{ transform: scale(.95); }}
+[class*="st-key-kx_"] .stButton button[kind="primary"] {{ background: {SHOUT} !important; color: {VOID} !important; border: 0 !important; }}
+[class*="st-key-kx_"] .stButton button[kind="primary"] p {{ color: {VOID} !important; font-weight: 800; }}
+[class*="st-key-kx_"] .stButton button:disabled {{ opacity: .35; transform: none; }}
+
+/* ---------- liquid hero (flat shout colour, asymmetrical bottom) */
+.kx-hero {{ background: {SHOUT}; color: {VOID}; margin: 0 -1rem 18px; padding: 26px 24px 46px;
+  border-radius: 0 0 120px 40px; position: relative; overflow: hidden; }}
+.kx-hero .kx-badge {{ background: {VOID}; color: {SHOUT}; }}
+.kx-title {{ font-size: 46px; font-weight: 900; letter-spacing: -.035em; line-height: .98; color: {VOID}; margin: 12px 0 10px; }}
+.kx-sub {{ font-size: 16px; font-weight: 500; opacity: .75; color: {VOID}; max-width: 92%; line-height: 1.45; }}
+.kx-hero .kx-label {{ color: rgba(10,10,10,.6); }}
+.kx-hero-num {{ font-size: 56px; font-weight: 900; letter-spacing: -.04em; line-height: 1; color: {VOID}; margin-top: 18px; }}
+.kx-head {{ display:flex; align-items:center; gap:.6rem; }}
+.kx-badge {{ display:inline-block; font-size:10px; font-weight:800; padding:5px 11px; border-radius:999px;
+  letter-spacing:.16em; text-transform:uppercase; }}
+.kx-label {{ font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.5); }}
+
+/* ---------- glass cards */
+.kx-card {{ border-radius: 32px; padding: 22px 22px; margin: 8px 0 14px; color: {WHITE};
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14);
+  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: 0 24px 60px rgba(0,0,0,.45); }}
+.kx-green {{ background: {GREEN_BG}; border-color: rgba(74,222,128,.35); }}
+.kx-amber {{ background: {AMBER_BG}; border-color: rgba(251,146,60,.35); }}
+.kx-grey  {{ background: {GREY_BG}; border-color: rgba(255,255,255,.10); }}
+/* the "ask" / primary cards become liquid shout blocks */
+.kx-blue  {{ background: {SHOUT}; border: 0; color: {VOID}; border-radius: 32px 32px 96px 32px; box-shadow: 0 24px 60px rgba(253,224,71,.12); }}
+.kx-blue .kx-big, .kx-blue .kx-mid, .kx-blue .kx-line, .kx-blue b {{ color: {VOID}; }}
+.kx-blue .kx-kicker, .kx-blue .kx-muted {{ color: rgba(10,10,10,.62); }}
+
+/* ---------- type scale */
+.kx-kicker {{ font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.5); margin-bottom: 6px; }}
+.kx-big {{ font-size: 40px; font-weight: 900; letter-spacing: -.035em; line-height: 1.05; color: {WHITE}; }}
+.kx-mid {{ font-size: 24px; font-weight: 800; letter-spacing: -.02em; color: {WHITE}; line-height: 1.2; }}
+.kx-line {{ font-size: 15px; color: rgba(255,255,255,.85); margin-top: 8px; line-height: 1.6; }}
+.kx-muted {{ font-size: 13px; color: rgba(255,255,255,.55); margin-top: 6px; line-height: 1.6; }}
+.kx-card b {{ color: inherit; }}
+
+/* ---------- chips & bars */
+.kx-chip {{ display:inline-block; font-size:12px; font-weight:800; padding:6px 13px; border-radius:999px; margin-top:12px; letter-spacing:.02em; }}
+.kx-chip.green {{ background: rgba(74,222,128,.16); color: {GREEN}; }}
+.kx-chip.amber {{ background: rgba(251,146,60,.16); color: {AMBER}; }}
+.kx-chip.grey  {{ background: rgba(255,255,255,.08); color: {GREY}; }}
+.kx-chip.blue  {{ background: {SHOUT}; color: {VOID}; }}
+.kx-blue .kx-chip.blue {{ background: {VOID}; color: {SHOUT}; }}
+.kx-bar {{ height:10px; background: rgba(255,255,255,.10); border-radius:99px; overflow:hidden; margin-top:12px; }}
+.kx-bar > i {{ display:block; height:100%; border-radius:99px; background:{SHOUT}; }}
+.kx-row {{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:11px 0;
+  border-bottom:1px solid rgba(255,255,255,.08); font-size:15px; color: rgba(255,255,255,.75); }}
 .kx-row:last-child {{ border-bottom:0; }}
-.kx-row b {{ font-size:18px; }}
-.kx-steps {{ display:flex; gap:6px; margin:4px 0 14px; }}
-.kx-steps i {{ flex:1; height:6px; border-radius:4px; background:#E1E4EA; }}
-.kx-steps i.on {{ background:{BLUE}; }}
-.kx-dots {{ display:flex; gap:8px; margin-top:8px; }}
-.kx-dot {{ flex:1; text-align:center; font-size:13px; color:#5B6472; }}
-.kx-dot b {{ display:block; width:30px; height:30px; margin:0 auto 4px; border-radius:50%; }}
-.kx-split {{ display:flex; height:16px; border-radius:99px; overflow:hidden; margin:10px 0 8px; }}
-.kx-split > i {{ display:block; height:100%; }}
-.kx-legend {{ font-size:15px; color:#344054; line-height:1.7; }}
-.kx-legend span {{ display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:6px; vertical-align:middle; }}
-.kx-phone {{ border:8px solid #111; border-radius:28px; padding:14px; background:#F6F8FB; max-width:300px; margin:6px auto; }}
-.kx-phone .bar {{ font-size:13px; font-weight:700; color:#fff; background:{NAVY}; margin:-14px -14px 12px; padding:8px 12px; border-radius:20px 20px 0 0; }}
-.kx-phone .bar.other {{ background:#5F259F; }}
-.kx-strike {{ text-decoration: line-through; color:#98A2B3; font-size:20px; margin-right:8px; }}
-.kx-say {{ background:#fff; border:1px solid #E7EAF0; border-radius:16px 16px 16px 4px; padding:12px 14px; font-size:17px; line-height:1.45; }}
-.kx-foot {{ font-size:13px; color:#98A2B3; text-align:center; margin:18px 0 6px; }}
+.kx-row b {{ font-size:17px; color: {WHITE}; }}
+.kx-steps {{ display:flex; gap:6px; margin:4px 0 16px; }}
+.kx-steps i {{ flex:1; height:6px; border-radius:99px; background: rgba(255,255,255,.12); }}
+.kx-steps i.on {{ background:{SHOUT}; }}
+.kx-split {{ display:flex; height:14px; border-radius:99px; overflow:hidden; margin:12px 0 10px; gap:3px; }}
+.kx-split > i {{ display:block; height:100%; border-radius:99px; }}
+.kx-legend {{ font-size:13px; color: rgba(255,255,255,.7); line-height:1.9; }}
+.kx-legend span {{ display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:8px; vertical-align:middle; }}
+
+/* ---------- speech bubble, phone mock-ups, footer */
+.kx-say {{ background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); color: {WHITE};
+  border-radius: 24px 24px 24px 6px; padding: 14px 16px; font-size: 15px; line-height: 1.55;
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); animation: kxUp .55s {EASE} both; }}
+.kx-say.me {{ background: {SHOUT}; color: {VOID}; border: 0; border-radius: 24px 24px 6px 24px; margin-left: auto; max-width: 85%; font-weight: 600; }}
+.kx-phone {{ border:1px solid rgba(255,255,255,.2); border-radius:32px; padding:16px; background:#F5F5F5; color:{VOID};
+  max-width:300px; margin:8px auto; box-shadow: 0 24px 60px rgba(0,0,0,.5); }}
+.kx-phone .bar {{ font-size:11px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:{SHOUT}; background:{VOID};
+  margin:-16px -16px 14px; padding:10px 14px; border-radius:31px 31px 0 0; }}
+.kx-phone .bar.other {{ background:#3B0764; color:#fff; }}
+.kx-phone .kx-chip.green {{ background: rgba(22,163,74,.12); color: #15803D; }}
+.kx-phone .kx-chip.grey {{ background: rgba(0,0,0,.06); color: #525252; }}
+.kx-strike {{ text-decoration: line-through; color:#A3A3A3; font-size:20px; margin-right:8px; }}
+.kx-foot {{ font-size:10px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color: rgba(255,255,255,.35);
+  text-align:center; margin:26px 0 8px; line-height:1.8; }}
+
+/* ---------- Streamlit widgets inside our screens */
+[class*="st-key-kx_"] [data-testid="stExpander"] details {{ border-radius: 28px; border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04); }}
+[class*="st-key-kx_"] [data-testid="stExpander"] summary p {{ font-weight: 700; }}
+[class*="st-key-kx_"] [data-baseweb="input"], [class*="st-key-kx_"] [data-baseweb="base-input"] {{ border-radius: 999px !important; }}
+[class*="st-key-kx_"] [data-testid="stTabs"] [role="tab"] p {{ font-weight: 700; }}
+[class*="st-key-kx_"] [data-testid="stButtonGroup"] button {{ border-radius: 999px !important; }}
 </style>
 """
 
@@ -79,11 +142,13 @@ def inject_css():
     st.markdown(CSS, unsafe_allow_html=True)
 
 
-def header(title, subtitle, badge=None):
+def header(title, subtitle, badge=None, extra_html=""):
+    """Liquid hero: flat Cyber Yellow block with an asymmetrical bottom edge and a massive headline."""
     badge = badge or t("concept")
     st.markdown(
-        f'<div class="kx-head"><div class="kx-title">{title}</div><span class="kx-badge">{badge}</span></div>'
-        f'<div class="kx-sub">{subtitle}</div>', unsafe_allow_html=True)
+        f'<div class="kx-hero"><span class="kx-badge">{badge}</span>'
+        f'<div class="kx-title">{title}</div><div class="kx-sub">{subtitle}</div>{extra_html}</div>',
+        unsafe_allow_html=True)
 
 
 def card(inner_html, tone=""):

@@ -43,28 +43,24 @@ st.markdown("""
 <style>
 [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"], [data-testid="stHeader"],
 [data-testid="stToolbar"], footer, #MainMenu { display: none !important; }
-.stApp { background: #F4F6FA; }
-.block-container { max-width: 480px !important; padding: 0.6rem 1rem 7.5rem !important; }
-/* keep button rows side by side on phones */
+.stApp { background: #0A0A0A; }
+.block-container { max-width: 480px !important; padding: 0.6rem 1rem 8rem !important; }
 [class*="st-key-kx_"] [data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; gap: 0.6rem !important; }
 [class*="st-key-kx_"] [data-testid="stColumn"], [class*="st-key-kx_"] [data-testid="column"] { min-width: 0 !important; width: auto !important; flex: 1 1 0 !important; }
-/* top bar */
-.gl-top { display:flex; justify-content:space-between; align-items:center; padding: 6px 2px 10px; }
-.gl-brand { font-size: 24px; font-weight: 800; color: #0B2447; letter-spacing: .2px; }
-.gl-brand span { color: #00BAF2; }
-.gl-shop { font-size: 12px; color: #5B6472; line-height: 1.3; margin-top: 2px; }
-.st-key-kx_topbar { margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #E4E7EC; }
+.gl-brand { font-family: Inter, sans-serif; font-size: 24px; font-weight: 900; color: #FFFFFF; letter-spacing: -.03em; }
+.gl-brand span { color: #FDE047; }
+.gl-shop { font-size: 10px; color: rgba(255,255,255,.45); letter-spacing: .14em; text-transform: uppercase; margin-top: 2px; }
+.st-key-kx_topbar { margin-bottom: 10px; }
 .st-key-kx_topbar [data-testid="stHorizontalBlock"] { align-items: center; }
 .st-key-kx_topbar [data-testid="stButtonGroup"] { justify-content: flex-end; display: flex; }
-/* bottom tab bar */
-.st-key-kx_tabbar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: min(480px, 100%);
-  background: #fff; border-top: 1px solid #E4E7EC; padding: 6px 10px calc(8px + env(safe-area-inset-bottom)); z-index: 1000;
-  box-shadow: 0 -4px 16px rgba(11,36,71,.06); }
-.st-key-kx_tabbar .stButton button { min-height: 54px !important; border: 0 !important; background: transparent !important;
-  color: #667085 !important; font-size: 15px !important; font-weight: 600 !important; border-radius: 12px !important; white-space: pre-line; line-height: 1.25; }
-.st-key-kx_tabbar .stButton button { padding: 4px 2px !important; }
-.st-key-kx_tabbar .stButton button p { font-size: 14px !important; overflow: visible !important; text-overflow: clip !important; }
-.st-key-kx_tabbar .stButton button[kind="primary"] { background: #E6F7FD !important; color: #0B2447 !important; }
+.st-key-kx_tabbar { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); width: min(452px, calc(100% - 28px));
+  background: rgba(23,23,23,.78); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 6px; z-index: 1000; box-shadow: 0 20px 50px rgba(0,0,0,.6); }
+.st-key-kx_tabbar .stButton button { min-height: 52px !important; border: 0 !important; background: transparent !important;
+  color: rgba(255,255,255,.6) !important; border-radius: 999px !important; padding: 4px 2px !important; white-space: pre-line; line-height: 1.2; }
+.st-key-kx_tabbar .stButton button p { font-size: 13px !important; font-weight: 700 !important; overflow: visible !important; text-overflow: clip !important; }
+.st-key-kx_tabbar .stButton button[kind="primary"] { background: #FDE047 !important; }
+.st-key-kx_tabbar .stButton button[kind="primary"] p { color: #0A0A0A !important; }
 </style>
 """, unsafe_allow_html=True)
 K.inject_css()
@@ -100,14 +96,8 @@ def aaj_screen():
     settlement = S.get(day)
     with st.container(key="kx_page_aaj"):
         lang = st.session_state.lang
-        st.markdown(f'<div class="kx-title">{t("namaste")}</div>'
-                    f'<div class="kx-sub">{DAY_LONG[lang][d.weekday()]}, {d.day} {MONTHS[lang][d.month - 1]}</div>',
-                    unsafe_allow_html=True)
-        if settlement is None:
-            K.card(f'<div class="kx-mid">{t("r_no_data")}</div>', "grey")
-        else:
-            K.card(f'<div class="kx-kicker">{t("upi_today")}</div><div class="kx-big">₹{G.rs(settlement)}</div>'
-                   f'<div class="kx-muted">{t("upi_today_sub")}</div>')
+        num = f'<div class="kx-label" style="margin-top:22px">{t("upi_today")}</div><div class="kx-hero-num">₹{G.rs(settlement)}</div>' if settlement is not None else ""
+        K.header(t("namaste"), f'{DAY_LONG[lang][d.weekday()]}, {d.day} {MONTHS[lang][d.month - 1]}', extra_html=num)
     gullak_ui.render_home_card()
     wapas_ui.render_home_card()
     K.foot(t("foot_app"))
