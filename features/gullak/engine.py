@@ -18,6 +18,32 @@ YES_FOR_AUTO = 3
 
 GOALS = ["Diwali", "Shaadi", "Emergency", "Dukaan", "Bas bachat"]
 
+# Where the gullak money goes (all through Paytm partners; concept, no rates or returns shown)
+INSTRUMENTS = ("gold", "silver", "fd", "fund")
+DEFAULT_ALLOCATION = {"gold": 100}
+
+
+# ---------------------------------------------------------------- allocation
+def normalize_allocation(choice):
+    """List of instruments -> equal % split summing to 100. Empty/invalid -> all gold."""
+    picks = [i for i in INSTRUMENTS if i in (choice or [])]
+    if not picks:
+        return dict(DEFAULT_ALLOCATION)
+    base, extra = divmod(100, len(picks))
+    return {k: base + (1 if n < extra else 0) for n, k in enumerate(picks)}
+
+
+def split_amount(amount, allocation):
+    """Split whole rupees by allocation %, largest remainder so parts always sum to amount."""
+    alloc = allocation or DEFAULT_ALLOCATION
+    total = sum(alloc.values()) or 1
+    raw = {k: amount * v / total for k, v in alloc.items()}
+    parts = {k: int(x) for k, x in raw.items()}
+    left = int(amount) - sum(parts.values())
+    for k in sorted(raw, key=lambda k: raw[k] - parts[k], reverse=True)[:left]:
+        parts[k] += 1
+    return parts
+
 REASON_CODES = ("paused", "no_data", "slow_day", "emi_soon", "stock_spend", "too_small")
 
 
@@ -233,6 +259,7 @@ def has_entry(state, day):
 def apply_save(state, rec):
     state["balance"] = state.get("balance", 0) + rec["amount"]
     _log(state, rec, "saved")
+    state["history"][-1]["split"] = split_amount(rec["amount"], state.get("allocation"))
 
 
 def apply_skip(state, rec):
@@ -285,10 +312,12 @@ def withdraw(state, amount, day, lang="hi"):
         return False, T(lang, "wd_min")
     if amount > bal:
         return False, T(lang, "wd_too_much", a=rs(bal))
+    held = holdings(state)
     state["balance"] = bal - amount
     state.setdefault("history", []).append({"date": _d(day).isoformat(), "settlement": None, "pct": 0,
                                             "amount": amount, "action": "withdrawn", "reason_code": "withdrawn",
-                                            "reason_kw": {}, "reason": ""})
+                                            "reason_kw": {}, "reason": "",
+                                            "split": split_amount(amount, {k: v for k, v in held.items() if v > 0})})
     return True, T(lang, "wd_done", a=rs(amount), left=rs(state["balance"]))
 
 
@@ -308,6 +337,55 @@ def resume(state):
 
 
 # ---------------------------------------------------------------- summaries
+def holdings(state):
+    """Rupees per instrument, from history. Entries without a split (older/mock) count as gold.
+    Any opening balance not explained by history is shown as gold too."""
+    out = {k: 0 for k in INSTRUMENTS}
+    for h in state.get("history", []):
+        split = h.get("split") or {"gold": h.get("amount", 0)}
+        sign = 1 if h["action"] == "saved" else -1 if h["action"] == "withdrawn" else 0
+        for k, v in split.items():
+            out[k] = out.get(k, 0) + sign * v
+    gap = int(state.get("balance", 0)) - sum(out.values())
+    if gap > 0:
+        out["gold"] += gap
+    return out
+
+
+def analytics(state, today, days=30):
+    """Numbers for the savings analytics card. All code, no LLM."""
+    end = _d(today)
+    start = end - timedelta(days=days - 1)
+    hist = [h for h in state.get("history", []) if start <= _d(h["date"]) <= end]
+    saved = [h for h in hist if h["action"] == "saved"]
+    skipped = [h for h in hist if h["action"] in ("skipped", "declined")]
+    withdrawn = sum(h["amount"] for h in hist if h["action"] == "withdrawn")
+    period_saved = sum(h["amount"] for h in saved)
+    # balance at the start of the window = current balance minus net change inside it
+    bal_start = int(state.get("balance", 0)) - period_saved + withdrawn
+    series, running = [], bal_start
+    by_day = {}
+    for h in hist:
+        by_day.setdefault(h["date"], 0)
+        by_day[h["date"]] += h["amount"] if h["action"] == "saved" else -h["amount"] if h["action"] == "withdrawn" else 0
+    for k in range(days):
+        d = (start + timedelta(days=k)).isoformat()
+        running += by_day.get(d, 0)
+        series.append({"date": d, "balance": running})
+    best = max(saved, key=lambda h: h["amount"]) if saved else None
+    held = holdings(state)
+    total_held = sum(v for v in held.values() if v > 0) or 1
+    return {
+        "balance": int(state.get("balance", 0)), "period_saved": period_saved, "withdrawn": withdrawn,
+        "days_saved": len(saved), "days_skipped": len(skipped),
+        "avg_per_saved_day": round(period_saved / len(saved)) if saved else 0,
+        "best_day": {"date": best["date"], "amount": best["amount"]} if best else None,
+        "series": series, "holdings": held,
+        "shares": {k: round(100 * max(v, 0) / total_held) for k, v in held.items()},
+        "goal_pct": int(goal_progress(state) * 100),
+    }
+
+
 def avg_daily(settlements, day, days=30):
     d = _d(day)
     vals = [settlements[(d - timedelta(days=k)).isoformat()] for k in range(1, days + 1)

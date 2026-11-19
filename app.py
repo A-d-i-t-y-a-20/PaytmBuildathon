@@ -62,6 +62,8 @@ st.markdown("""
   box-shadow: 0 -4px 16px rgba(11,36,71,.06); }
 .st-key-kx_tabbar .stButton button { min-height: 54px !important; border: 0 !important; background: transparent !important;
   color: #667085 !important; font-size: 15px !important; font-weight: 600 !important; border-radius: 12px !important; white-space: pre-line; line-height: 1.25; }
+.st-key-kx_tabbar .stButton button { padding: 4px 2px !important; }
+.st-key-kx_tabbar .stButton button p { font-size: 14px !important; overflow: visible !important; text-overflow: clip !important; }
 .st-key-kx_tabbar .stButton button[kind="primary"] { background: #E6F7FD !important; color: #0B2447 !important; }
 </style>
 """, unsafe_allow_html=True)

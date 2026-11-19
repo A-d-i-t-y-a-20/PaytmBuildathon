@@ -28,12 +28,17 @@ def _data():
     return st.session_state.wa_payments, st.session_state.wa_consent, st.session_state.wa_outcome
 
 
-def _proposal(offer_id=None):
+def _proposal():
     P, C, _ = _data()
-    oid = offer_id or st.session_state.get("wa_offer_id", E.DEFAULT_OFFER)
-    if st.session_state.get("wa_prop_key") != oid:
-        st.session_state.wa_prop = E.build_proposal(P, C, offer_id=oid)
-        st.session_state.wa_prop_key = oid
+    custom = st.session_state.get("wa_custom")
+    oid = st.session_state.get("wa_offer_id", E.DEFAULT_OFFER)
+    window = st.session_state.get("wa_window", "quiet")
+    days = st.session_state.get("wa_days", E.CAMPAIGN_DAYS)
+    budget = st.session_state.get("wa_budget", E.DEFAULT_BUDGET)
+    key = (repr(sorted(custom.items())) if custom else oid, window, days, budget)
+    if st.session_state.get("wa_prop_key") != key:
+        st.session_state.wa_prop = E.build_proposal(P, C, offer_id=oid, offer=custom, window=window, days=days, budget=budget)
+        st.session_state.wa_prop_key = key
     return st.session_state.wa_prop
 
 
@@ -43,13 +48,16 @@ def _stage(s):
 
 
 def _window(q):
+    if q.get("key") == "allday":
+        return t("window_allday")
+
     def h(x):
         return x - 12 if x > 12 else x
     return t("window", a=h(q["start"]), b=h(q["end"]))
 
 
 def _offer_text(o):
-    key = {"flat": "offer_flat", "free_item": "offer_free", "stamp": "offer_stamp"}[o["kind"]]
+    key = {"flat": "offer_flat", "percent": "offer_percent", "free_item": "offer_free", "stamp": "offer_stamp"}[o["kind"]]
     return t(key, v=o["value"], min=rs(o["min_bill"]))
 
 
@@ -70,6 +78,7 @@ def _ask():
         v = E.validate_ask(llm_out, text)
         if v.get("offer_id"):
             st.session_state.wa_offer_id = v["offer_id"]
+            st.session_state.wa_llm_pick = v["offer_id"]
         st.session_state.wa_note = None
         if v["intent"] == "win_back":
             st.session_state.wa_said = text
@@ -121,24 +130,83 @@ def _split_bar(r):
             f'<span style="background:#D0D5DD"></span>{t("leg_none", n=r["unreachable"])}</div>')
 
 
+def _pct(x):
+    return format(x, "g")
+
+
+def _ai_picks(current):
+    recs = E.rank_with_llm(E.recommend_offers(), st.session_state.get("wa_llm_pick"))
+    for n, r in enumerate(recs):
+        o = r["offer"]
+        top = f'<span class="kx-chip blue" style="margin:0 0 6px">{t("ai_top")}</span><br>' if n == 0 else ""
+        K.card(f'{top}<div class="kx-line" style="margin-top:0"><b>{_offer_text(o)}</b></div>'
+               f'<div class="kx-muted">{t("ai_why_" + r["why"])} · {t("ai_cost", pct=_pct(r["cost_pct"]))}</div>')
+        chosen = current.get("id") == o["id"] and not st.session_state.get("wa_custom")
+        if st.button(t("in_use") if chosen else t("btn_use"), key=f"wa_use_{o['id']}", width="stretch", disabled=chosen):
+            st.session_state.wa_offer_id = o["id"]
+            st.session_state.wa_custom = None
+            st.rerun()
+
+
+CUSTOM_KINDS = ["flat", "percent", "free_item", "stamp"]
+
+
+def _custom_builder(pr):
+    kind = st.pills(t("cu_type"), CUSTOM_KINDS, default="flat", key=f"wa_cu_kind_{_lang()}",
+                    format_func=lambda k: t({"flat": "cu_flat", "percent": "cu_percent", "free_item": "cu_free",
+                                             "stamp": "cu_stamp"}[k])) or "flat"
+    labels = {"flat": "cu_value_rs", "percent": "cu_value_pct", "free_item": "cu_value_item", "stamp": "cu_value_stamp"}
+    defaults = {"flat": (20, 400), "percent": (5, 300), "free_item": (8, 250), "stamp": (30, 200)}
+    c1, c2 = st.columns(2)
+    value = c1.number_input(t(labels[kind]), min_value=1, max_value=100 if kind == "percent" else 2000,
+                            value=defaults[kind][0], step=1 if kind == "percent" else 5, key=f"wa_cu_val_{kind}")
+    min_bill = c2.number_input(t("cu_min"), min_value=50, max_value=20000, value=st.session_state.get(f"wa_cu_min_{kind}_v", defaults[kind][1]),
+                               step=50, key=f"wa_cu_min_{kind}")
+    windows = {"quiet": t("cu_quiet"), "evening": t("cu_evening"), "allday": t("cu_allday")}
+    window = st.pills(t("cu_when"), list(windows), default=st.session_state.get("wa_window", "quiet"),
+                      format_func=lambda k: windows[k], key=f"wa_cu_win_{_lang()}") or "quiet"
+    days = st.pills(t("cu_days"), [7, 14, 30], default=st.session_state.get("wa_days", 14), key="wa_cu_days") or 14
+    budgets = {300: "₹300", 600: "₹600", 1000: "₹1,000"}
+    budget = st.pills(t("cu_budget"), list(budgets), default=st.session_state.get("wa_budget", 600),
+                      format_func=lambda b: budgets[b], key="wa_cu_budget") or 600
+    offer = E.make_custom_offer(kind, value, min_bill)
+    chk = E.cost_check(offer)
+    if chk["ok"]:
+        st.markdown(f'<span class="kx-chip green">{t("cu_ok", pct=_pct(chk["cost_pct"]))}</span>', unsafe_allow_html=True)
+    else:
+        K.card(f'<div class="kx-line">{t("cu_bad", pct=_pct(chk["cost_pct"]), m=chk["margin_pct"])}</div>', "amber")
+        fixed = E.reprice(offer)
+        fix_label = (t("cu_fix", min=rs(fixed["min_bill"])) if kind != "percent"
+                     else t("offer_percent", v=fixed["value"], min=rs(fixed["min_bill"])))
+        if st.button(fix_label, key=f"wa_cu_fix_{kind}", width="stretch"):
+            if kind == "percent":
+                st.session_state[f"wa_cu_val_{kind}"] = fixed["value"]
+            else:
+                st.session_state[f"wa_cu_min_{kind}_v"] = fixed["min_bill"]
+                st.session_state.pop(f"wa_cu_min_{kind}", None)
+            st.rerun()
+    if st.button(t("btn_use_custom"), type="secondary", width="stretch", key="wa_cu_use", disabled=not chk["ok"]):
+        st.session_state.wa_custom = offer
+        st.session_state.wa_window, st.session_state.wa_days, st.session_state.wa_budget = window, days, budget
+        st.rerun()
+
+
 def _proposal_view():
     pr = _proposal()
     o, r, c, q = pr["offer"], pr["reach"], pr["cost"], pr["quiet"]
     K.card(f'<div class="kx-kicker">{t("prop_kicker")}</div><div class="kx-mid">{_offer_text(o)}</div>'
-           f'<div class="kx-line">{t("prop_when", w=_window(q), d=pr["days"], end=_end_label(pr["end_date"]))}</div>', "blue")
+           f'<div class="kx-line">{t("prop_when", w=_window(pr["window"]), d=pr["days"], end=_end_label(pr["end_date"]))}</div>', "blue")
     K.card(f'<div class="kx-kicker">{t("reach_kicker")}</div>'
            f'<div class="kx-mid">{t("reach_big", r=r["reachable"], total=pr["lapsed"])}</div>{_split_bar(r)}')
     K.card(f'<div class="kx-row"><span>{t("cost_share")}</span><b>{c["cost_pct"]:g}%</b></div>'
            f'<div class="kx-row"><span>{t("cost_margin")}</span><b>~{c["margin_pct"]}%</b></div>'
            f'<div class="kx-row"><span>{t("cost_max")}</span><b>₹{rs(pr["budget"])}</b></div>'
            f'<span class="kx-chip green">{t("cost_ok") if not o.get("repriced_from") else t("cost_repriced")}</span>')
-    with st.expander(t("other_offers")):
-        ids = list(E.OFFER_LIBRARY)
-        choice = st.radio("offer", ids, format_func=lambda k: _offer_text(E.OFFER_LIBRARY[k]), index=ids.index(o["id"]),
-                          key=f"wa_offer_radio_{_lang()}", label_visibility="collapsed")
-        if choice != o["id"]:
-            st.session_state.wa_offer_id = choice
-            st.rerun()
+    tab_ai, tab_custom = st.tabs([t("pick_tab_ai"), t("pick_tab_custom")])
+    with tab_ai:
+        _ai_picks(o)
+    with tab_custom:
+        _custom_builder(pr)
     st.markdown(f'<div class="kx-muted">{t("privacy_line")}<br>{t("holdout_line", n=pr["holdout_n"])}</div>',
                 unsafe_allow_html=True)
     st.write("")
@@ -238,7 +306,8 @@ def render_page():
         {"ask": _ask, "finding": _finding, "proposal": _proposal_view, "running": _running, "result": _result}[stage]()
         _trust_panel()
         if stage != "ask" and st.button(t("btn_restart"), key="wa_restart"):
-            for k in ("wa_stage", "wa_finding_cache", "wa_said", "wa_note", "wa_running", "wa_offer_id"):
+            for k in ("wa_stage", "wa_finding_cache", "wa_said", "wa_note", "wa_running", "wa_offer_id", "wa_custom",
+                      "wa_window", "wa_days", "wa_budget", "wa_llm_pick"):
                 st.session_state.pop(k, None)
             st.rerun()
         K.foot(t("foot_wapas"))

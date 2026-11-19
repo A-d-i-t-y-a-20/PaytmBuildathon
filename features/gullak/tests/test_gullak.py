@@ -186,6 +186,24 @@ def test_question_in_language():
     check("clarifying question in chosen language", "समझ" in q_hi and "didn't get" in q_en, (q_hi, q_en))
 
 
+def test_split_and_allocation():
+    al = E.normalize_allocation(["gold", "fd", "fund"])
+    parts = E.split_amount(121, al)
+    check("allocation sums to 100, split sums to the amount", sum(al.values()) == 100 and sum(parts.values()) == 121
+          and E.normalize_allocation([]) == {"gold": 100}, (al, parts))
+
+
+def test_analytics_consistent():
+    st_ = state(balance=0, history=[], allocation={"gold": 50, "fd": 50})
+    for day in ["2026-11-19", "2026-11-20", "2026-11-22"]:
+        E.apply_save(st_, E.decide_day(S, OB, st_, day))
+    E.withdraw(st_, 50, "2026-11-22")
+    a = E.analytics(st_, "2026-11-22", days=7)
+    held = sum(a["holdings"].values())
+    check("analytics: series ends at balance, holdings match balance, counts right",
+          a["series"][-1]["balance"] == st_["balance"] == held and a["days_saved"] == 3 and a["withdrawn"] == 50, a)
+
+
 def test_rs_format():
     check("Indian number format", E.rs(123456) == "1,23,456" and E.rs(6240) == "6,240", E.rs(123456))
 
@@ -202,7 +220,7 @@ def run_table():
              test_2000_nikalo, test_garbled_voice, test_injection, test_set_goal_voice, test_pause_voice,
              test_cap_never_above_5, test_goal_reached, test_suggest_to_auto, test_backtest_totals,
              test_hindi_script_withdraw, test_hindi_script_pause, test_english_commands, test_language_switch,
-             test_question_in_language, test_rs_format]
+             test_question_in_language, test_split_and_allocation, test_analytics_consistent, test_rs_format]
     for t in order:
         try:
             t()

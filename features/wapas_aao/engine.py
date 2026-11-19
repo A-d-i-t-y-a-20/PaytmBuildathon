@@ -34,7 +34,11 @@ OFFER_LIBRARY = {
                       "title": "Free biscuit packet on bills of Rs 250+"},
     "stamp_30_5": {"id": "stamp_30_5", "kind": "stamp", "value": 30, "visits": 5, "min_bill": 200,
                    "title": "Rs 30 back on every 5th visit (Rs 200+ bills)"},
+    "pct_5_300": {"id": "pct_5_300", "kind": "percent", "value": 5, "min_bill": 300,
+                  "title": "5% off on bills of Rs 300+"},
 }
+OFFER_KINDS = ("flat", "percent", "free_item", "stamp")
+WINDOWS = {"evening": (18, 21), "allday": (8, 22)}  # "quiet" is computed from data
 DEFAULT_OFFER = "flat_20_400"
 
 
@@ -150,10 +154,31 @@ def assign_holdout(reachable, seed="campaign-1"):
 
 # ---------------------------------------------------------------- offer pricing
 def cost_share(offer):
-    """Offer cost as a share of the qualifying spend."""
+    """Offer cost as a share of the qualifying spend (worst case: a bill right at the minimum)."""
+    if offer["kind"] == "percent":
+        return offer["value"] / 100.0
     if offer["kind"] == "stamp":
-        return offer["value"] / (offer["min_bill"] * offer["visits"])
+        return offer["value"] / (offer["min_bill"] * offer.get("visits", 5))
     return offer["value"] / offer["min_bill"]
+
+
+def discount_for(bill, offer):
+    """Rupees the shop gives on one qualifying bill."""
+    if offer["kind"] == "percent":
+        return int(round(bill * offer["value"] / 100.0))
+    return int(offer["value"])
+
+
+def make_custom_offer(kind, value, min_bill, visits=5):
+    """A shopkeeper-built offer. Validated with cost_check() like any other."""
+    kind = kind if kind in OFFER_KINDS else "flat"
+    o = {"id": "custom", "kind": kind, "value": max(1, int(value or 0)), "min_bill": max(1, int(min_bill or 0)),
+         "title": "custom"}
+    if kind == "stamp":
+        o["visits"] = visits
+    if kind == "free_item":
+        o["item"] = "item"
+    return o
 
 
 def cost_check(offer, margin=MARGIN):
@@ -164,9 +189,17 @@ def cost_check(offer, margin=MARGIN):
 
 
 def reprice(offer, margin=MARGIN):
-    """Raise the minimum bill (in Rs 50 steps) until the offer fits the cost cap."""
+    """Make an offer fit the cost cap: lower the % for percent offers, otherwise raise the
+    minimum bill in Rs 50 steps."""
     o = dict(offer)
-    while not cost_check(o, margin)["ok"]:
+    if o["kind"] == "percent":
+        o["value"] = min(o["value"], int(MAX_COST_SHARE * margin * 100))
+        if o["value"] != offer["value"]:
+            o["repriced_from"] = offer["min_bill"]
+        return o
+    for _ in range(400):
+        if cost_check(o, margin)["ok"]:
+            break
         o["min_bill"] += 50
     if o["min_bill"] != offer["min_bill"]:
         o["title"] = f"Rs {o['value']} off on bills of Rs {o['min_bill']}+" if o["kind"] == "flat" else o["title"]
@@ -175,17 +208,40 @@ def reprice(offer, margin=MARGIN):
 
 
 def max_redemptions(offer, budget):
-    return int(budget // offer["value"])
+    return int(budget // max(1, discount_for(offer["min_bill"], offer)))
+
+
+def recommend_offers(margin=MARGIN):
+    """Ranked offer ideas from the library, all within the cost cap. Code ranks; the LLM may
+    re-order (validated) and only phrases the reason."""
+    order = ["flat_20_400", "free_item_250", "stamp_30_5", "pct_5_300"]
+    out = []
+    for oid in order:
+        o = OFFER_LIBRARY[oid]
+        c = cost_check(o, margin)
+        if c["ok"]:
+            out.append({"offer": o, "cost_pct": c["cost_pct"], "why": o["kind"]})
+    return out
+
+
+def rank_with_llm(recs, llm_pick):
+    """Move the LLM's pick to the top if it is one of the code-approved ideas."""
+    ids = [r["offer"]["id"] for r in recs]
+    if llm_pick in ids:
+        i = ids.index(llm_pick)
+        return [recs[i]] + recs[:i] + recs[i + 1:]
+    return recs
 
 
 # ---------------------------------------------------------------- proposal
-def build_proposal(payments, consent, today=TODAY, offer_id=DEFAULT_OFFER, budget=DEFAULT_BUDGET, margin=MARGIN):
+def build_proposal(payments, consent, today=TODAY, offer_id=DEFAULT_OFFER, budget=DEFAULT_BUDGET, margin=MARGIN,
+                   offer=None, window="quiet", days=CAMPAIGN_DAYS):
     lapsed = find_lapsed(payments, today)
     split = reach_split(lapsed, consent)
     reachable = split["rewards"] + split["paytm"]
     treatment, holdout = assign_holdout(reachable)
     q = quiet_hours(payments, today)
-    offer = OFFER_LIBRARY.get(offer_id, OFFER_LIBRARY[DEFAULT_OFFER])
+    offer = dict(offer) if offer else OFFER_LIBRARY.get(offer_id, OFFER_LIBRARY[DEFAULT_OFFER])
     check = cost_check(offer, margin)
     if not check["ok"]:
         offer = reprice(offer, margin)
@@ -198,8 +254,11 @@ def build_proposal(payments, consent, today=TODAY, offer_id=DEFAULT_OFFER, budge
         "treatment_n": len(treatment), "holdout_n": len(holdout),
         "quiet": {"start": q["start"], "end": q["end"], "drop_pct": q["drop_pct"]},
         "offer": offer, "cost": check, "budget": budget, "max_redemptions": max_redemptions(offer, budget),
-        "start_date": start.isoformat(), "end_date": (start + timedelta(days=CAMPAIGN_DAYS)).isoformat(),
-        "days": CAMPAIGN_DAYS,
+        "window": {"key": window if window in WINDOWS else "quiet",
+                   "start": WINDOWS.get(window, (q["start"], q["end"]))[0],
+                   "end": WINDOWS.get(window, (q["start"], q["end"]))[1]},
+        "start_date": start.isoformat(), "end_date": (start + timedelta(days=days)).isoformat(),
+        "days": days,
         # private: never rendered for the merchant (see merchant_view)
         "_treatment": treatment, "_holdout": holdout,
     }
@@ -235,11 +294,12 @@ def notifs_ok(schedule):
 # ---------------------------------------------------------------- customer side
 def apply_offer(bill, offer, consented, in_window=True, budget_left=None):
     """What the Paytm-app customer pays. Instant discount, no cashback."""
-    if not consented or not in_window or offer["kind"] != "flat" or bill < offer["min_bill"]:
+    if not consented or not in_window or offer["kind"] not in ("flat", "percent") or bill < offer["min_bill"]:
         return {"bill": bill, "discount": 0, "pay": bill, "applied": False}
-    if budget_left is not None and budget_left < offer["value"]:
+    d = discount_for(bill, offer)
+    if budget_left is not None and budget_left < d:
         return {"bill": bill, "discount": 0, "pay": bill, "applied": False, "budget_exhausted": True}
-    return {"bill": bill, "discount": offer["value"], "pay": bill - offer["value"], "applied": True}
+    return {"bill": bill, "discount": d, "pay": bill - d, "applied": True}
 
 
 def soundbox_line(result):
@@ -269,9 +329,10 @@ def run_redemptions(visits, offer, budget):
     """Apply budget cap: stop redeeming once the budget is used."""
     redeemed, spent = [], 0
     for bill in visits:
-        if bill >= offer["min_bill"] and spent + offer["value"] <= budget:
+        d = discount_for(bill, offer)
+        if bill >= offer["min_bill"] and spent + d <= budget:
             redeemed.append(bill)
-            spent += offer["value"]
+            spent += d
     return redeemed, spent
 
 

@@ -146,6 +146,31 @@ def test_hindi_english_asks():
           a["intent"] == "win_back" and b["intent"] == "win_back" and c["intent"] == "refuse_contact", (a, b, c))
 
 
+def test_custom_offer_cap():
+    bad = E.make_custom_offer("flat", 50, 400)
+    good = E.make_custom_offer("flat", 30, 600)
+    pct = E.make_custom_offer("percent", 10, 300)
+    ok = (not E.cost_check(bad)["ok"] and E.cost_check(E.reprice(bad))["ok"] and E.cost_check(good)["ok"]
+          and E.reprice(pct)["value"] == 5 and E.cost_check(E.reprice(pct))["ok"])
+    check("custom offers: over-cap flagged and fixable (min bill up / % down)", ok)
+
+
+def test_custom_proposal():
+    o = E.make_custom_offer("percent", 5, 300)
+    pr = E.build_proposal(P, C, offer=o, window="evening", days=7, budget=300)
+    r = E.apply_offer(400, o, consented=True)
+    check("custom proposal: evening window, 7 days, 5% of Rs 400 = Rs 20 off",
+          pr["window"]["start"] == 18 and pr["days"] == 7 and pr["end_date"] == "2026-11-26" and r["pay"] == 380, (pr["window"], r))
+
+
+def test_recommendations_safe():
+    recs = E.recommend_offers()
+    ranked = E.rank_with_llm(recs, "stamp_30_5")
+    same = E.rank_with_llm(recs, "free_gold_coin")
+    check("AI picks: all within cap; LLM can reorder only to a valid pick",
+          all(E.cost_check(r["offer"])["ok"] for r in recs) and ranked[0]["offer"]["id"] == "stamp_30_5" and same == recs)
+
+
 def test_llm_bad_offer_ignored():
     v = E.validate_ask({"intent": "win_back", "offer_id": "free_gold_coin"}, "grahak nahi aa rahe")
     check("LLM offer outside library is ignored", v["intent"] == "win_back" and "offer_id" not in v, v)
@@ -161,7 +186,8 @@ ORDER = [test_lapsed_count, test_reach_consent_only, test_treatment_all_consente
          test_merchant_sees_no_ids, test_instant_discount, test_no_offer_without_consent, test_below_min_bill,
          test_soundbox_line, test_stamp_progress, test_notification_cap, test_real_end_date,
          test_result_profit_after_cost, test_superseded_numbers_lose_money, test_opt_out_erases,
-         test_injection_contact, test_voice_win_back, test_hindi_english_asks, test_llm_bad_offer_ignored,
+         test_injection_contact, test_voice_win_back, test_hindi_english_asks, test_custom_offer_cap,
+         test_custom_proposal, test_recommendations_safe, test_llm_bad_offer_ignored,
          test_llm_number_guard]
 
 

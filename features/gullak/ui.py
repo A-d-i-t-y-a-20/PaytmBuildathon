@@ -234,6 +234,128 @@ def _balance_block(state):
            f'{K.bar(g["progress"])}')
 
 
+# ---------------------------------------------------------------- analytics (dark card)
+INST_COLORS = {"gold": "#F5C451", "silver": "#C3CCDA", "fd": "#7FB2FF", "fund": "#C6F25E"}
+DARK = {"bg": "#1D1F23", "panel": "#26292E", "ink": "#F2F4F7", "muted": "#9AA3B2", "line": "#C6F25E"}
+
+
+def _inst_name(k):
+    return t(f"inst_{k}")
+
+
+def _alloc_list(state):
+    alloc = state.get("allocation") or E.DEFAULT_ALLOCATION
+    return " + ".join(_inst_name(k) for k in E.INSTRUMENTS if alloc.get(k))
+
+
+def _ring_svg(shares, center_top, center_bottom):
+    import math
+    r, cx, cy, w = 54, 70, 70, 13
+    circ = 2 * math.pi * r
+    parts = [(k, v) for k, v in shares.items() if v > 0] or [("gold", 100)]
+    gap = 6 if len(parts) > 1 else 0
+    arcs, offset = [], 0.0
+    for k, v in parts:
+        length = max(circ * v / 100 - gap, 2)
+        arcs.append(f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{INST_COLORS[k]}" stroke-width="{w}" '
+                    f'stroke-linecap="round" stroke-dasharray="{length:.1f} {circ:.1f}" stroke-dashoffset="{-offset:.1f}" '
+                    f'transform="rotate(-90 {cx} {cy})"/>')
+        offset += circ * v / 100
+    return (f'<svg viewBox="0 0 140 140" width="140" height="140" role="img" aria-label="{center_top} {center_bottom}">'
+            f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{DARK["panel"]}" stroke-width="{w}"/>{"".join(arcs)}'
+            f'<text x="{cx}" y="{cy + 4}" text-anchor="middle" font-size="26" font-weight="800" fill="{DARK["ink"]}">{center_top}</text>'
+            f'<text x="{cx}" y="{cy + 24}" text-anchor="middle" font-size="12" fill="{DARK["muted"]}">{center_bottom}</text></svg>')
+
+
+def _line_svg(series, lang):
+    vals = [p["balance"] for p in series]
+    W, H, pad = 400, 110, 8
+    lo, hi = min(vals), max(vals)
+    span = (hi - lo) or 1
+    n = len(vals)
+    pts = [(pad + i * (W - 2 * pad) / max(n - 1, 1), H - 22 - (v - lo) / span * (H - 44)) for i, v in enumerate(vals)]
+    path = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+    area = path + f" L{pts[-1][0]:.1f},{H - 18} L{pts[0][0]:.1f},{H - 18} Z"
+    step = max(1, n // 5)
+    from features.common.i18n import MONTHS
+    ticks = "".join(
+        f'<text x="{pts[i][0]:.1f}" y="{H - 2}" text-anchor="{"start" if i == 0 else "middle"}" font-size="11" fill="{DARK["muted"]}">'
+        f'{int(series[i]["date"][8:])} {MONTHS[lang][int(series[i]["date"][5:7]) - 1]}</text>'
+        for i in range(0, n, step))
+    x_end, y_end = pts[-1]
+    return (f'<svg viewBox="0 0 {W} {H}" width="100%" height="{H}" preserveAspectRatio="none" role="img" aria-label="trend">'
+            f'<defs><linearGradient id="gkfill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="{DARK["line"]}" stop-opacity=".28"/>'
+            f'<stop offset="1" stop-color="{DARK["line"]}" stop-opacity="0"/></linearGradient></defs>'
+            f'<path d="{area}" fill="url(#gkfill)"/>'
+            f'<path d="{path}" fill="none" stroke="{DARK["line"]}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
+            f'<circle cx="{x_end:.1f}" cy="{y_end:.1f}" r="5" fill="{DARK["line"]}"/>{ticks}</svg>')
+
+
+def _analytics_block(state):
+    g = E.goal_status(state, _lang())
+    if g["reached"]:
+        K.card(f'<div class="kx-mid">🎉 {g["message"]}</div>', "green")
+        if st.button(t("btn_new_goal"), type="primary", width="stretch", key="gk_newgoal"):
+            _go("goal")
+        return
+    c1, c2 = st.columns([1, 1])
+    c1.markdown(f'<div class="kx-mid" style="margin-top:4px">{t("an_title")}</div>', unsafe_allow_html=True)
+    period = c2.segmented_control("period", [7, 30], format_func=lambda d: t("an_week") if d == 7 else t("an_month"),
+                                  default=30, key="gk_an_period", label_visibility="collapsed") or 30
+    a = E.analytics(state, _today(state), days=period)
+    lang = _lang()
+    legend = "".join(
+        f'<div style="display:flex;align-items:center;gap:8px;font-size:14px;color:{DARK["muted"]};margin:3px 0">'
+        f'<i style="width:10px;height:10px;border-radius:50%;background:{INST_COLORS[k]};display:inline-block"></i>'
+        f'{_inst_name(k)} <b style="color:{DARK["ink"]}">{a["shares"][k]}%</b></div>'
+        for k in E.INSTRUMENTS if a["shares"].get(k))
+    def stat(label, value):
+        return (f'<div style="padding:7px 0;border-bottom:1px solid #33363C"><div style="font-size:12px;color:{DARK["muted"]}">{label}</div>'
+                f'<div style="font-size:19px;font-weight:700;color:{DARK["ink"]}">{value}</div></div>')
+    best = f'₹{E.rs(a["best_day"]["amount"])}' if a["best_day"] else "–"
+    stats = (stat(t("an_days_saved"), a["days_saved"]) + stat(t("an_days_skipped"), a["days_skipped"])
+             + stat(t("an_avg"), f'₹{E.rs(a["avg_per_saved_day"])}') + stat(t("an_best"), best))
+    has_trend = a["days_saved"] > 0 and len({p["balance"] for p in a["series"]}) > 1
+    trend = (f'<div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0 4px">'
+             f'<span style="font-size:14px;color:{DARK["muted"]}">{t("an_trend")}</span>'
+             f'<span style="background:{DARK["line"]};color:#1D1F23;font-weight:800;font-size:14px;padding:3px 10px;border-radius:999px">'
+             f'₹{E.rs(a["balance"])}</span></div>' + _line_svg(a["series"], lang)) if has_trend else         f'<div style="font-size:14px;color:{DARK["muted"]};margin-top:14px">{t("an_empty")}</div>'
+    goal_name = _goal_name(state)
+    ring = _ring_svg(a["shares"], str(a["goal_pct"]) + "%", goal_name + " " + t("an_goal"))
+    html = (f'<div style="background:{DARK["bg"]};border-radius:24px;padding:20px;margin:6px 0 12px;color:{DARK["ink"]}">'
+            f'<div style="background:{DARK["panel"]};border-radius:18px;padding:16px 18px">'
+            f'<div style="font-size:13px;color:{DARK["muted"]}">{t("an_total")}</div>'
+            f'<div style="font-size:38px;font-weight:800;line-height:1.15">₹{E.rs(a["balance"])}</div>'
+            f'<div style="font-size:14px;color:{DARK["muted"]};margin-top:4px;line-height:1.5">'
+            f'{t("an_period", n=period, amt=E.rs(a["period_saved"]))}<br>{_sahara(E.buffer_days(a["balance"], _avg(state)))}</div></div>'
+            f'<div style="display:flex;gap:16px;align-items:flex-start;margin-top:16px">'
+            f'<div style="flex:0 0 140px">{ring}{legend}</div>'
+            f'<div style="flex:1;min-width:0">{stats}</div></div>{trend}</div>')
+    st.markdown(html, unsafe_allow_html=True)
+    if st.button(t("where_btn", list=_alloc_list(state)), width="stretch", key="gk_where_btn"):
+        _go("where")
+
+
+def _where(state):
+    st.markdown(f'<div class="kx-mid">{t("where_title")}</div>', unsafe_allow_html=True)
+    st.caption(t("where_sub"))
+    current = [k for k in E.INSTRUMENTS if (state.get("allocation") or E.DEFAULT_ALLOCATION).get(k)]
+    pick = st.pills("where", list(E.INSTRUMENTS), selection_mode="multi", default=current,
+                    format_func=_inst_name, key=f"gk_where_pick_{_lang()}", label_visibility="collapsed")
+    rows = "".join(f'<div class="kx-row"><span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;'
+                   f'background:{INST_COLORS[k]};margin-right:8px"></i>{_inst_name(k)}</span>'
+                   f'<span style="font-size:14px;color:#5B6472">{t(f"inst_{k}_sub")}</span></div>' for k in E.INSTRUMENTS)
+    K.card(rows)
+    st.markdown(f'<div class="kx-muted">{t("where_risk")}</div><div style="height:10px"></div>', unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
+    if c1.button(t("btn_confirm"), type="primary", width="stretch", key="gk_where_ok", disabled=not pick):
+        state["allocation"] = E.normalize_allocation(pick)
+        st.session_state.gk_flash = ("green", t("where_done", list=_alloc_list(state)))
+        _go("main")
+    if c2.button(t("btn_back"), width="stretch", key="gk_where_back"):
+        _go("main")
+
+
 def _strip(state):
     end = date.fromisoformat(_today(state))
     days = [(end - timedelta(days=k)).isoformat() for k in range(6, -1, -1)]
@@ -425,11 +547,15 @@ def _demo_controls(state):
         if c2.button(t("demo_preset"), width="stretch", key="gk_preset"):
             bt = E.backtest(S, OB, 3.0, "2026-11-19", days=30)
             opening = 4487  # mock: saved in earlier months
+            alloc = {"gold": 50, "fd": 30, "fund": 20}  # mock choice
+            for h in bt["history"]:
+                if h["action"] == "saved":
+                    h["split"] = E.split_amount(h["amount"], alloc)
             st.session_state.gk_state = {
                 "mock": True, "opted_in": True, "mode": "auto", "cap_pct": 3.0,
                 "goal": {"name": "Diwali", "target": 10000}, "balance": opening + bt["total"],
                 "yes_count": 3, "auto_offer_done": True, "suggest_days_left": 0, "today": "2026-11-19",
-                "history": bt["history"],
+                "history": bt["history"], "allocation": alloc,
             }
             st.session_state.gk_rec_cache = {}
             st.rerun()
@@ -471,10 +597,12 @@ def render_page():
             _cap(state)
         elif view == "cmd_confirm":
             _cmd_confirm(state)
+        elif view == "where":
+            _where(state)
         else:
             _today_card(state)
             _bad_week_card(state, "gk_bw_btn_page")
-            _balance_block(state)
+            _analytics_block(state)
             _strip(state)
             st.write("")
             c1, c2 = st.columns(2)
