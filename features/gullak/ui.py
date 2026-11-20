@@ -24,10 +24,22 @@ def _lang():
     return K.lang()
 
 
+_UNSET = object()
+
+
 def _data():
-    if "gk_settlements" not in st.session_state:
-        st.session_state.gk_settlements = adapter.load_settlements()
-        st.session_state.gk_obligations = adapter.load_obligations()
+    """Settlements/obligations for whichever merchant is active: the Platform Console's
+    selected mock merchant if one is open, else the hand-authored default demo merchant."""
+    pm = st.session_state.get("platform_merchant")
+    mid = pm["id"] if pm else None
+    if st.session_state.get("gk_data_merchant_id", _UNSET) != mid:
+        if pm:
+            st.session_state.gk_settlements = pm["settlements"]
+            st.session_state.gk_obligations = pm["obligations"]
+        else:
+            st.session_state.gk_settlements = adapter.load_settlements()
+            st.session_state.gk_obligations = adapter.load_obligations()
+        st.session_state.gk_data_merchant_id = mid
     return st.session_state.gk_settlements, st.session_state.gk_obligations
 
 
@@ -236,8 +248,8 @@ def _balance_block(state):
 
 
 # ---------------------------------------------------------------- analytics (dark card)
-INST_COLORS = {"gold": "#F5C451", "silver": "#C3CCDA", "fd": "#7FB2FF", "fund": "#C6F25E"}
-DARK = {"bg": "#1D1F23", "panel": "#26292E", "ink": "#F2F4F7", "muted": "#9AA3B2", "line": "#C6F25E"}
+INST_COLORS = {"gold": "#F5C451", "silver": "#C3CCDA", "fd": "#7FB2FF", "fund": "#F2C14E"}
+DARK = {"bg": "#1D1F3A", "panel": "#262A4D", "ink": "#F2F4F7", "muted": "#9AA3B2", "line": "#F2C14E"}
 
 
 def _inst_name(k):

@@ -108,7 +108,7 @@ def _finding():
         if cache[_lang()]:
             line1, line2 = cache[_lang()], ""
     if st.session_state.get("wa_said"):
-        st.markdown(f'<div class="kx-say" style="border-radius:16px 16px 4px 16px;background:#0B2447;color:#fff;margin-left:auto;'
+        st.markdown(f'<div class="kx-say" style="border-radius:16px 16px 4px 16px;background:{K.SHOUT};color:#fff;margin-left:auto;'
                     f'max-width:85%">🎤 {st.session_state.wa_said}</div>', unsafe_allow_html=True)
     K.card(f'<div class="kx-mid">{line1}</div>' + (f'<div class="kx-line">{line2}</div>' if line2 else "")
            + f'<div class="kx-line" style="margin-top:12px"><b>{t("find_q")}</b></div>', "blue")
@@ -227,7 +227,7 @@ def _customer_view(pr):
         with t1:
             if o["kind"] == "flat":
                 res = E.apply_offer(420, o, consented=True)
-                body = (f'<div style="font-size:14px;color:#5B6472">Gupta General Store ✓</div>'
+                body = (f'<div style="font-size:14px;color:#5B6472">{K.shop_name()} ✓</div>'
                         f'<div style="font-size:30px;font-weight:800;margin:8px 0"><span class="kx-strike">₹{res["bill"]}</span>₹{res["pay"]}</div>'
                         f'<div class="kx-chip green" style="margin:0">{t("cv_applied", d=res["discount"])}</div>'
                         f'<div style="font-size:13px;color:#5B6472;margin-top:8px">{t("cv_note1")}</div>')
