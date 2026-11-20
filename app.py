@@ -7,6 +7,7 @@ Console for the platform's (Paytm's) merchant ops team.
 
 Concept demo, mock data. Run: streamlit run app.py
 """
+import hashlib
 import os
 import sys
 from datetime import date
@@ -111,22 +112,63 @@ def tab_bar():
                 st.rerun()
 
 
+def _assistant_facts():
+    """This merchant's real current numbers, so Ask Galla can analyze actual session data
+    instead of only describing the app in the abstract."""
+    gstate = gullak_ui.get_state()
+    facts = {
+        "shop_name": shop_name(), "gullak_balance": int(gstate.get("balance", 0)),
+        "gullak_goal": (gstate.get("goal") or {}).get("name"),
+        "gullak_goal_target": (gstate.get("goal") or {}).get("target"),
+        "gullak_mode": gstate.get("mode"),
+    }
+    try:
+        pr = wapas_ui._proposal()
+        facts["lapsed_customers"] = pr.get("lapsed")
+    except Exception:
+        pass
+    return facts
+
+
 @st.dialog("Galla")
 def _ask_dialog():
+    from features.common import voice
     with st.container(key="kx_ask_dialog"):
         st.markdown(f'<div class="kx-mid">{t("ask_dialog_title")}</div><div class="kx-muted">{t("ask_dialog_sub")}</div>',
                     unsafe_allow_html=True)
-        heard = K.listen(t("ask_mic_label"), key="ask_mic")
-        text = st.text_input("ask", value=heard or "", placeholder=t("ask_placeholder"),
-                             key=f"ask_text_{bool(heard)}", label_visibility="collapsed")
-        sent = st.button(t("ask_btn"), type="primary", width="stretch", key="ask_go")
-        if sent and text.strip():
-            st.session_state.ask_answer = assistant.ask(text, st.session_state.lang) or t("ask_fallback")
-        if st.session_state.get("ask_answer"):
-            K.ai_say(st.session_state.ask_answer)
-            K.speak(st.session_state.ask_answer, key="ask_tts")
+
+        # Voice: fully hands-free, Alexa/Siri-style -- a new recording answers itself (voice
+        # in, voice out, no button, no visible answer text) in whichever language was spoken.
+        if voice.has_key():
+            audio = st.audio_input(t("ask_mic_label"), key="ask_audio")
+            if audio is not None:
+                h = hashlib.sha1(audio.getvalue()).hexdigest()
+                if st.session_state.get("ask_audio_seen") != h:
+                    st.session_state.ask_audio_seen = h
+                    with st.spinner(t("ask_listening")):
+                        res = voice.speech_to_text(audio.getvalue())
+                    if res and res.get("transcript"):
+                        lang_code = res.get("language_code") or "hi-IN"
+                        answer = assistant.ask(res["transcript"], lang=lang_code, facts=_assistant_facts()) or t("ask_fallback")
+                        assistant.log(res["transcript"], answer, lang_code, "voice", shop_name())
+                        K.speak(answer, lang_code=voice.normalize_lang(lang_code), autoplay=True, key="ask_voice_tts")
+                    else:
+                        st.caption(t("voice_fail"))
+
+        # Text fallback (typed, or when there's no Sarvam key): shows the answer, since
+        # typing is already a deliberate, visual way to ask.
+        text = st.text_input("ask", value="", placeholder=t("ask_placeholder"), key="ask_text", label_visibility="collapsed")
+        if st.button(t("ask_btn"), type="primary", width="stretch", key="ask_go") and text.strip():
+            answer = assistant.ask(text, lang=st.session_state.lang, facts=_assistant_facts()) or t("ask_fallback")
+            assistant.log(text, answer, st.session_state.lang, "text", shop_name())
+            st.session_state.ask_text_answer = answer
+        if st.session_state.get("ask_text_answer"):
+            K.ai_say(st.session_state.ask_text_answer)
+            K.speak(st.session_state.ask_text_answer, key="ask_text_tts")
+
         if st.button(t("ask_close"), key="ask_close_btn", width="stretch"):
-            st.session_state.pop("ask_answer", None)
+            for k in ("ask_text_answer", "ask_audio_seen"):
+                st.session_state.pop(k, None)
             st.rerun()
 
 

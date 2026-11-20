@@ -76,10 +76,12 @@ def speech_to_text(audio_bytes, filename="audio.wav", language_code="unknown"):
         return None
 
 
-def _normalize_lang(language_code):
+def normalize_lang(language_code):
+    """Map any code (a full Sarvam STT code, a bare 2-letter code, or something unexpected)
+    to one of the TTS-supported codes. Public so callers can reuse the detected STT language
+    for the matching TTS voice."""
     if language_code in SUPPORTED_TTS_LANGS:
         return language_code
-    # best-effort map from a bare 2-letter code or something unexpected to a supported one
     short = (language_code or "")[:2].lower()
     mapping = {"hi": "hi-IN", "en": "en-IN", "bn": "bn-IN", "gu": "gu-IN", "kn": "kn-IN",
                "ml": "ml-IN", "mr": "mr-IN", "pa": "pa-IN", "ta": "ta-IN", "te": "te-IN"}
@@ -94,7 +96,7 @@ def text_to_speech(text, language_code="hi-IN"):
     try:
         payload = {
             "text": text[:2500],
-            "language_code": _normalize_lang(language_code),
+            "language_code": normalize_lang(language_code),
             "model": TTS_MODEL,
             "output_audio_codec": "wav",
         }
