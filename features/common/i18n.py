@@ -44,6 +44,8 @@ S = {
                      "en": "AI is off right now, so here's the code answer: Gullak saves from daily sales, the "
                            "Regulars tab brings back old customers, and there's a Platform view for the ops team."},
     "ask_close": {"hi": "बंद करो", "en": "Close"},
+    "ask_type_instead": {"hi": "✏️ लिखकर पूछो", "en": "✏️ Type instead"},
+    "ask_novoice": {"hi": "आवाज़ अभी बंद है (कोई Sarvam key नहीं), नीचे लिखो।", "en": "Voice is off right now (no Sarvam key) -- type below instead."},
 
     # ---------------- gullak: reasons (engine codes)
     "r_paused": {"hi": "गुल्लक रुका हुआ है", "en": "Gullak is paused"},

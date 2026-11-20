@@ -134,13 +134,18 @@ def _assistant_facts():
 def _ask_dialog():
     from features.common import voice
     with st.container(key="kx_ask_dialog"):
-        st.markdown(f'<div class="kx-mid">{t("ask_dialog_title")}</div><div class="kx-muted">{t("ask_dialog_sub")}</div>',
-                    unsafe_allow_html=True)
+        answered = bool(st.session_state.get("ask_voice_answered"))
+        st.markdown(K.wave(still=not answered and not voice.has_key()), unsafe_allow_html=True)
+        status = t("ask_listening") if not answered else t("ask_dialog_sub")
+        st.markdown(f'<div class="kx-mid" style="text-align:center">{status}</div>', unsafe_allow_html=True)
 
-        # Voice: fully hands-free, Alexa/Siri-style -- a new recording answers itself (voice
-        # in, voice out, no button, no visible answer text) in whichever language was spoken.
+        # Voice is the primary, hands-free path (Alexa/Siri-style): once a recording is made,
+        # it answers itself -- no further taps, voice in, voice out, no visible answer text --
+        # in whichever language was spoken. The only taps are the browser's own mic
+        # start/stop (required for microphone permission; nothing I can do in-app removes
+        # that one browser-level click), never a separate "Ask" step.
         if voice.has_key():
-            audio = st.audio_input(t("ask_mic_label"), key="ask_audio")
+            audio = st.audio_input(t("ask_mic_label"), key="ask_audio", label_visibility="collapsed")
             if audio is not None:
                 h = hashlib.sha1(audio.getvalue()).hexdigest()
                 if st.session_state.get("ask_audio_seen") != h:
@@ -151,23 +156,27 @@ def _ask_dialog():
                         lang_code = res.get("language_code") or "hi-IN"
                         answer = assistant.ask(res["transcript"], lang=lang_code, facts=_assistant_facts()) or t("ask_fallback")
                         assistant.log(res["transcript"], answer, lang_code, "voice", shop_name())
+                        st.session_state.ask_voice_answered = True
                         K.speak(answer, lang_code=voice.normalize_lang(lang_code), autoplay=True, key="ask_voice_tts")
+                        st.rerun()
                     else:
                         st.caption(t("voice_fail"))
+        else:
+            st.caption(t("ask_novoice"))
 
-        # Text fallback (typed, or when there's no Sarvam key): shows the answer, since
-        # typing is already a deliberate, visual way to ask.
-        text = st.text_input("ask", value="", placeholder=t("ask_placeholder"), key="ask_text", label_visibility="collapsed")
-        if st.button(t("ask_btn"), type="primary", width="stretch", key="ask_go") and text.strip():
-            answer = assistant.ask(text, lang=st.session_state.lang, facts=_assistant_facts()) or t("ask_fallback")
-            assistant.log(text, answer, st.session_state.lang, "text", shop_name())
-            st.session_state.ask_text_answer = answer
-        if st.session_state.get("ask_text_answer"):
-            K.ai_say(st.session_state.ask_text_answer)
-            K.speak(st.session_state.ask_text_answer, key="ask_text_tts")
+        # Typing stays available, tucked away: a deliberate visual action, so it still shows text.
+        with st.expander(t("ask_type_instead")):
+            text = st.text_input("ask", value="", placeholder=t("ask_placeholder"), key="ask_text", label_visibility="collapsed")
+            if st.button(t("ask_btn"), type="primary", width="stretch", key="ask_go") and text.strip():
+                answer = assistant.ask(text, lang=st.session_state.lang, facts=_assistant_facts()) or t("ask_fallback")
+                assistant.log(text, answer, st.session_state.lang, "text", shop_name())
+                st.session_state.ask_text_answer = answer
+            if st.session_state.get("ask_text_answer"):
+                K.ai_say(st.session_state.ask_text_answer)
+                K.speak(st.session_state.ask_text_answer, key="ask_text_tts")
 
         if st.button(t("ask_close"), key="ask_close_btn", width="stretch"):
-            for k in ("ask_text_answer", "ask_audio_seen"):
+            for k in ("ask_text_answer", "ask_audio_seen", "ask_voice_answered"):
                 st.session_state.pop(k, None)
             st.rerun()
 

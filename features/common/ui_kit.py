@@ -58,6 +58,20 @@ CSS = f"""
 .kx-orb-hint {{ font-size: 12px; font-weight: 600; color: rgba(255,255,255,.5); text-align: center;
   margin-bottom: 14px; letter-spacing: .02em; }}
 
+/* ---------- Siri-style animated voice waveform */
+@keyframes kxWave {{ 0%, 100% {{ transform: scaleY(.25); }} 50% {{ transform: scaleY(1); }} }}
+.kx-wave {{ display: flex; align-items: center; justify-content: center; gap: 6px; height: 64px; margin: 6px 0 18px; }}
+.kx-wave i {{ display: block; width: 6px; height: 100%; border-radius: 999px;
+  background: {GRAD}; animation: kxWave 1.1s ease-in-out infinite; transform-origin: center; }}
+.kx-wave i:nth-child(1) {{ animation-delay: 0s; }}
+.kx-wave i:nth-child(2) {{ animation-delay: .15s; }}
+.kx-wave i:nth-child(3) {{ animation-delay: .3s; }}
+.kx-wave i:nth-child(4) {{ animation-delay: .1s; }}
+.kx-wave i:nth-child(5) {{ animation-delay: .35s; }}
+.kx-wave i:nth-child(6) {{ animation-delay: .2s; }}
+.kx-wave i:nth-child(7) {{ animation-delay: .05s; }}
+.kx-wave.still i {{ animation-play-state: paused; transform: scaleY(.22); opacity: .5; }}
+
 /* ---------- pill buttons (glass outline by default, teal gradient for primary) */
 [class*="st-key-kx_"] .stButton button {{
   min-height: 52px; border-radius: 999px !important; font-size: 15px; font-weight: 700; letter-spacing: .01em;
@@ -197,6 +211,12 @@ def inject_css():
 def avatar():
     """The small gradient avatar shown beside an AI/assistant reply bubble."""
     return '<span class="kx-sticker" style="margin-top:2px"></span>'
+
+
+def wave(still=False):
+    """A Siri-style animated voice waveform. still=True freezes it (e.g. nothing captured yet)."""
+    cls = "kx-wave still" if still else "kx-wave"
+    return f'<div class="{cls}">{"<i></i>" * 7}</div>'
 
 
 def ai_say(text):
