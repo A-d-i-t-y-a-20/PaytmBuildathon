@@ -30,6 +30,21 @@ S = {
     "tab_grahak": {"hi": "ग्राहक", "en": "Regulars"},
     "foot_app": {"hi": "कॉन्सेप्ट · मॉक डेटा · कोई असली पैसा या मैसेज नहीं", "en": "Concept · mock data · no real money or messages"},
 
+    # ---------------- Ask Galla (global voice/text help assistant)
+    "ask_orb_label": {"hi": "पूछो", "en": "Ask"},
+    "ask_orb_hint": {"hi": "आवाज़ से कुछ भी पूछो", "en": "Ask anything, by voice"},
+    "ask_dialog_title": {"hi": "गल्ला से पूछो", "en": "Ask Galla"},
+    "ask_dialog_sub": {"hi": "ऐप के बारे में कुछ भी पूछो, बोलकर या लिखकर।", "en": "Ask anything about the app, by voice or text."},
+    "ask_mic_label": {"hi": "माइक दबाओ और पूछो", "en": "Tap the mic and ask"},
+    "ask_placeholder": {"hi": "जैसे: \"गुल्लक कैसे काम करता है?\"", "en": "e.g. \"How does Gullak work?\""},
+    "ask_btn": {"hi": "पूछो", "en": "Ask"},
+    "ask_listening": {"hi": "सुन रहा हूँ...", "en": "Listening..."},
+    "ask_fallback": {"hi": "AI अभी बंद है, इसलिए कोड से यह बता सकते हैं: गुल्लक रोज़ की बिक्री से बचत करता है, "
+                           "ग्राहक टैब पुराने ग्राहक वापस बुलाता है, और एक प्लेटफ़ॉर्म व्यू ऑप्स टीम के लिए है।",
+                     "en": "AI is off right now, so here's the code answer: Gullak saves from daily sales, the "
+                           "Regulars tab brings back old customers, and there's a Platform view for the ops team."},
+    "ask_close": {"hi": "बंद करो", "en": "Close"},
+
     # ---------------- gullak: reasons (engine codes)
     "r_paused": {"hi": "गुल्लक रुका हुआ है", "en": "Gullak is paused"},
     "r_no_data": {"hi": "आज का डेटा अभी नहीं आया", "en": "Today's data hasn't arrived yet"},

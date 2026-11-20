@@ -41,6 +41,23 @@ CSS = f"""
 .kx-hero, .kx-card {{ animation: kxUp .55s {EASE} both; }}
 .kx-float {{ animation: kxUp .55s {EASE} both, kxFloat 6s ease-in-out 1s infinite; }}
 
+/* ---------- Ask Galla: a centered, pulsing Siri-style orb button */
+@keyframes kxPulse {{
+  0%, 100% {{ box-shadow: 0 0 0 0 rgba(34,211,168,.45), 0 10px 34px rgba(0,0,0,.4); }}
+  50% {{ box-shadow: 0 0 0 18px rgba(34,211,168,0), 0 10px 34px rgba(0,0,0,.4); }}
+}}
+/* a column-direction flex container centers horizontally via align-items, not justify-content */
+[class*="st-key-kx_orb_"] {{ display: flex; flex-direction: column; align-items: center; margin: 4px 0 26px; }}
+[class*="st-key-kx_orb_"] .stButton {{ display: flex; justify-content: center; width: 100%; }}
+[class*="st-key-kx_orb_"] button {{ width: 104px !important; height: 104px !important; min-height: 0 !important;
+  border-radius: 50% !important; background: {GRAD} !important; border: 0 !important; color: #06150E !important;
+  font-size: 16px !important; font-weight: 800 !important; letter-spacing: .02em;
+  animation: kxPulse 2.6s ease-in-out infinite; transition: transform .2s {EASE}; }}
+[class*="st-key-kx_orb_"] button:hover {{ transform: scale(1.05); }}
+[class*="st-key-kx_orb_"] button:active {{ transform: scale(.95); }}
+.kx-orb-hint {{ font-size: 12px; font-weight: 600; color: rgba(255,255,255,.5); text-align: center;
+  margin-bottom: 14px; letter-spacing: .02em; }}
+
 /* ---------- pill buttons (glass outline by default, teal gradient for primary) */
 [class*="st-key-kx_"] .stButton button {{
   min-height: 52px; border-radius: 999px !important; font-size: 15px; font-weight: 700; letter-spacing: .01em;

@@ -23,7 +23,7 @@ try:  # Streamlit Cloud secrets -> env vars (never printed)
 except Exception:
     pass
 
-from features.common import ui_kit as K
+from features.common import assistant, ui_kit as K
 from features.common.i18n import DAY_LONG, LANGS, MONTHS
 from features.gullak import engine as G
 from features.gullak import ui as gullak_ui
@@ -111,6 +111,25 @@ def tab_bar():
                 st.rerun()
 
 
+@st.dialog("Galla")
+def _ask_dialog():
+    with st.container(key="kx_ask_dialog"):
+        st.markdown(f'<div class="kx-mid">{t("ask_dialog_title")}</div><div class="kx-muted">{t("ask_dialog_sub")}</div>',
+                    unsafe_allow_html=True)
+        heard = K.listen(t("ask_mic_label"), key="ask_mic")
+        text = st.text_input("ask", value=heard or "", placeholder=t("ask_placeholder"),
+                             key=f"ask_text_{bool(heard)}", label_visibility="collapsed")
+        sent = st.button(t("ask_btn"), type="primary", width="stretch", key="ask_go")
+        if sent and text.strip():
+            st.session_state.ask_answer = assistant.ask(text, st.session_state.lang) or t("ask_fallback")
+        if st.session_state.get("ask_answer"):
+            K.ai_say(st.session_state.ask_answer)
+            K.speak(st.session_state.ask_answer, key="ask_tts")
+        if st.button(t("ask_close"), key="ask_close_btn", width="stretch"):
+            st.session_state.pop("ask_answer", None)
+            st.rerun()
+
+
 def aaj_screen():
     state = gullak_ui.get_state()
     S, _ = gullak_ui._data()
@@ -121,6 +140,10 @@ def aaj_screen():
         lang = st.session_state.lang
         num = f'<div class="kx-label" style="margin-top:22px">{t("upi_today")}</div><div class="kx-hero-num">₹{G.rs(settlement)}</div>' if settlement is not None else ""
         K.header(t("namaste"), f'{DAY_LONG[lang][d.weekday()]}, {d.day} {MONTHS[lang][d.month - 1]}', extra_html=num)
+        with st.container(key="kx_orb_home"):
+            st.markdown(f'<div class="kx-orb-hint">{t("ask_orb_hint")}</div>', unsafe_allow_html=True)
+            if st.button(t("ask_orb_label"), key="ask_orb_btn"):
+                _ask_dialog()
     gullak_ui.render_home_card()
     wapas_ui.render_home_card()
     K.foot(t("foot_app"))
