@@ -19,7 +19,7 @@ Optional secrets (env vars or `.streamlit/secrets.toml`): `GEMINI_API_KEY` (or `
 
 ## Tests
 ```
-python -m pytest features -q                  # 53 tests, no API key needed
+python -m pytest features -q                  # 58 tests, no API key needed
 python -m features.gullak.tests.test_gullak   # printed pass/fail table
 python -m features.wapas_aao.tests.test_wapas
 ```

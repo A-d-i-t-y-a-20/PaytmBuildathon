@@ -23,8 +23,37 @@ TTS_MODEL = os.environ.get("SARVAM_TTS_MODEL", "bulbul:v3")
 SUPPORTED_TTS_LANGS = {"bn-IN", "en-IN", "gu-IN", "hi-IN", "kn-IN", "ml-IN", "mr-IN", "od-IN", "pa-IN", "ta-IN", "te-IN"}
 
 
+# Demo-visible status only: ok/last error TYPE and a short message. Never the key.
+_status = {"ok": None, "error_type": None, "error_msg": None}
+
+
 def has_key():
     return bool(os.environ.get("SARVAM_API_KEY"))
+
+
+def status():
+    return dict(_status)
+
+
+def summary():
+    """One line for Demo controls: 'Voice: <state>'."""
+    if not has_key():
+        return "no key"
+    if _status["ok"] is True:
+        return "Sarvam OK"
+    if _status["ok"] is False:
+        return f"error {_status['error_type']}: {_status['error_msg']}"
+    return "Sarvam configured, untested"
+
+
+def test_tts():
+    """Used by the 'Test AI' button: one tiny real TTS call. Returns True/False, also updates status()."""
+    return text_to_speech("Test.", "hi-IN") is not None
+
+
+def _set_status(ok, exc=None):
+    _status.update(ok=ok, error_type=type(exc).__name__ if exc else None,
+                    error_msg=str(exc)[:120] if exc else None)
 
 
 def speech_to_text(audio_bytes, filename="audio.wav", language_code="unknown"):
@@ -40,8 +69,10 @@ def speech_to_text(audio_bytes, filename="audio.wav", language_code="unknown"):
         )
         resp.raise_for_status()
         body = resp.json()
+        _set_status(True)
         return {"transcript": body.get("transcript", ""), "language_code": body.get("language_code")}
-    except Exception:
+    except Exception as exc:
+        _set_status(False, exc)
         return None
 
 
@@ -74,7 +105,10 @@ def text_to_speech(text, language_code="hi-IN"):
         resp.raise_for_status()
         audios = resp.json().get("audios") or []
         if not audios:
+            _set_status(False, RuntimeError("empty audios list"))
             return None
+        _set_status(True)
         return base64.b64decode(audios[0])
-    except Exception:
+    except Exception as exc:
+        _set_status(False, exc)
         return None

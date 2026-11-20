@@ -48,13 +48,14 @@ def _today(state):
 
 
 def _rec(state, day):
-    """Decision for a day, computed once per (day, cap, mode, language) so reruns don't re-call the LLM."""
+    """Decision for a day, computed once per (day, cap, mode, language, week) so reruns don't re-call the LLM."""
     S, OB = _data()
     cache = st.session_state.setdefault("gk_rec_cache", {})
-    key = (day, state.get("cap_pct"), state.get("mode"), _lang())
+    wd = _bad_week_drop(state)
+    key = (day, state.get("cap_pct"), state.get("mode"), _lang(), round(wd))
     if key not in cache:
         llm_fn = ai.smart_amount if ai.available() else None
-        cache[key] = E.decide_day(S, OB, state, day, llm_fn=llm_fn, lang=_lang())
+        cache[key] = E.decide_day(S, OB, state, day, llm_fn=llm_fn, lang=_lang(), week_drop_pct=wd)
     return cache[key]
 
 
@@ -410,7 +411,9 @@ def _withdraw(state):
     bal = int(state.get("balance", 0))
     st.markdown(f'<div class="kx-mid">{t("wd_q")}</div>', unsafe_allow_html=True)
     st.caption(t("wd_have", amt=E.rs(bal)))
-    opts = {"₹500": 500, "₹1,000": 1000, "₹2,000": 2000, t("wd_all"): bal}
+    opts = {k: v for k, v in {"₹500": 500, "₹1,000": 1000, "₹2,000": 2000}.items() if v <= bal}
+    if bal > 0:
+        opts[t("wd_all")] = bal
     pick = st.pills("amount", list(opts), key=f"gk_wd_pick_{_lang()}", label_visibility="collapsed")
     amt = st.number_input(t("wd_type"), min_value=0, max_value=max(bal, 0), step=100,
                           value=min(int(opts[pick]), bal) if pick else 0, key=f"gk_wd_num_{pick}")
@@ -435,8 +438,10 @@ def _withdraw_confirm(state):
     if c1.button(t("btn_wd_yes"), type="primary", width="stretch", key="gk_wdc_yes"):
         ok, msg = E.withdraw(state, amt, _today(state), lang=_lang())
         st.session_state.gk_flash = ("green" if ok else "amber", msg)
+        st.session_state.gk_reply = None
         _go("main")
     if c2.button(t("btn_no"), width="stretch", key="gk_wdc_no"):
+        st.session_state.gk_reply = None
         _go("main")
 
 
@@ -481,6 +486,7 @@ def _cmd_confirm(state):
         if st.button(t("btn_yes"), type="primary", width="stretch", key="gk_cc_goal"):
             state["goal"] = {"name": name, "target": int(target)}
             st.session_state.gk_flash = ("green", t("flash_goal", goal=goal_label(_lang(), name), amt=E.rs(target)))
+            st.session_state.gk_reply = None
             _go("main")
     elif c.get("intent") == "change_cap":
         K.card(f'<div class="kx-mid">{t("cc_cap", pct=int(c["cap"]))}</div>'
@@ -488,17 +494,21 @@ def _cmd_confirm(state):
         if st.button(t("btn_yes"), type="primary", width="stretch", key="gk_cc_cap"):
             state["cap_pct"] = c["cap"]
             st.session_state.gk_flash = ("green", t("flash_cap", pct=int(c["cap"])))
+            st.session_state.gk_reply = None
             _go("main")
     if st.button(t("btn_no"), width="stretch", key="gk_cc_no"):
+        st.session_state.gk_reply = None
         _go("main")
 
 
 def _voice(state):
     st.markdown(f'<div class="kx-kicker" style="margin-top:8px">{t("voice_title")}</div>', unsafe_allow_html=True)
     heard = K.listen(t("mic_label"), key="gk_mic")
-    text = st.text_input("command", value=heard or "", placeholder=t("voice_ph"),
-                         key=f"gk_cmd_text_{bool(heard)}", label_visibility="collapsed")
-    if st.button(t("btn_send"), width="stretch", key="gk_cmd_go") and text.strip():
+    with st.form(key=f"gk_cmd_form_{bool(heard)}", clear_on_submit=False, border=False):
+        text = st.text_input("command", value=heard or "", placeholder=t("voice_ph"),
+                             key=f"gk_cmd_text_{bool(heard)}", label_visibility="collapsed")
+        sent = st.form_submit_button(t("btn_send"), width="stretch")
+    if sent and text.strip():
         llm_out = ai.read_command(text, state.get("balance", 0), _lang()) if ai.available() else None
         c = E.validate_command(llm_out, text, state, lang=_lang())
         st.session_state.gk_reply = _do_command(state, c)
@@ -566,7 +576,18 @@ def _demo_controls(state):
             for k in ("gk_state", "gk_view", "gk_rec_cache", "gk_onb", "gk_reply", "gk_flash"):
                 st.session_state.pop(k, None)
             st.rerun()
-        st.caption(f"{today} · {state.get('mode')} · AI: {'on' if ai.available() else 'fallback'}")
+        from features.common import llm, voice
+        st.caption(f"{today} · {state.get('mode')} · AI: {llm.summary()} · Voice: {voice.summary()}")
+        if st.button(t("demo_test_ai"), width="stretch", key="gk_test_ai"):
+            with st.spinner(t("demo_test_ai")):
+                ai_ok = llm.test_call()
+                voice_ok = voice.test_tts()
+            st.session_state.gk_test_result = (ai_ok, voice_ok)
+            st.rerun()
+        if "gk_test_result" in st.session_state:
+            ai_ok, voice_ok = st.session_state.gk_test_result
+            pf = lambda ok: t("demo_pass") if ok else t("demo_fail")  # noqa: E731
+            st.caption(f"AI: {pf(ai_ok)} ({llm.summary()}) · Voice: {pf(voice_ok)} ({voice.summary()})")
 
 
 # ---------------------------------------------------------------- page

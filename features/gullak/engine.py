@@ -44,7 +44,9 @@ def split_amount(amount, allocation):
         parts[k] += 1
     return parts
 
-REASON_CODES = ("paused", "no_data", "slow_day", "emi_soon", "stock_spend", "too_small")
+REASON_CODES = ("paused", "no_data", "slow_day", "emi_soon", "stock_spend", "too_small", "bad_week")
+BAD_WEEK_SKIP = 35.0   # % down on the week -> skip entirely
+BAD_WEEK_REDUCE = 20.0  # % down on the week -> cut the save bounds hard
 
 
 def reason_text(code, lang="hi", **kw):
@@ -104,7 +106,7 @@ def day_inputs(settlements, obligations, day):
 
 
 # ---------------------------------------------------------------- rules
-def evaluate(inp, cap_pct, paused=False, lang="hi"):
+def evaluate(inp, cap_pct, paused=False, lang="hi", week_drop=0):
     """Skip checks + pct bounds. Returns a dict; no LLM involved."""
     cap = clamp_cap(cap_pct)
     s, usual = inp.get("settlement"), inp.get("usual")
@@ -130,9 +132,15 @@ def evaluate(inp, cap_pct, paused=False, lang="hi"):
         return skip("emi_soon", n=due)
     if inp.get("stock_spend_3d", 0) > inp.get("cash", 0):
         return skip("stock_spend")
+    if week_drop >= BAD_WEEK_SKIP:
+        ev["day_type"] = "bad_week"
+        return skip("bad_week", pct=round(week_drop))
     good = ratio > 1.2
     ev["day_type"] = "good" if good else "normal"
     hi = cap if good else max(MIN_PCT, cap / 2)
+    if week_drop >= BAD_WEEK_REDUCE:
+        ev["day_type"] = "bad_week"
+        hi = max(MIN_PCT, cap / 4)
     ev["bounds"] = (MIN_PCT, round(hi, 2))
     return ev
 
@@ -167,10 +175,13 @@ def numbers_in(text):
     return {int(n.replace(",", "")) for n in re.findall(r"\d[\d,]*", text or "") if n.replace(",", "").isdigit()}
 
 
-def decide_day(settlements, obligations, state, day, llm_fn=None, lang="hi"):
-    """Full daily decision. llm_fn(payload) -> dict|None picks pct within bounds."""
+def decide_day(settlements, obligations, state, day, llm_fn=None, lang="hi", week_drop_pct=None):
+    """Full daily decision. llm_fn(payload) -> dict|None picks pct within bounds.
+    week_drop_pct overrides the computed week-over-week drop (demo toggle); omit to compute it
+    from settlements so a genuinely bad week reduces or skips the save, matching the home banner."""
     inp = day_inputs(settlements, obligations, day)
-    ev = evaluate(inp, state.get("cap_pct", DEFAULT_CAP), paused=state.get("mode") == "paused", lang=lang)
+    wd = week_drop(settlements, day) if week_drop_pct is None else week_drop_pct
+    ev = evaluate(inp, state.get("cap_pct", DEFAULT_CAP), paused=state.get("mode") == "paused", lang=lang, week_drop=wd)
     rec = {"date": inp["date"], "settlement": inp["settlement"], "usual": inp["usual"],
            "day_type": ev["day_type"], "ratio": ev["ratio"], "bounds": ev["bounds"],
            "pct": 0.0, "amount": 0, "skip": ev["skip"], "reason_code": ev["reason_code"],
@@ -201,7 +212,7 @@ def decide_day(settlements, obligations, state, day, llm_fn=None, lang="hi"):
         rec.update(skip=True, reason_code="too_small", reason=reason_text("too_small", lang), pct=pct)
         rec["spoken_line"] = spoken_template(rec, lang)
         return rec
-    code = "good_day" if ev["day_type"] == "good" else "normal_day"
+    code = {"good": "good_day", "bad_week": "bad_week_reduced"}.get(ev["day_type"], "normal_day")
     rec.update(pct=pct, amount=amount, reason_code=code, reason=reason or reason_text(code, lang),
                llm_reason=reason, llm_lang=lang if reason else None, used_fallback=used_fb)
     rec["spoken_line"] = spoken_template(rec, lang)

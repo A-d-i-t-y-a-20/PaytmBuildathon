@@ -123,6 +123,15 @@ CSS = f"""
 [class*="st-key-kx_"] [data-testid="stExpander"] details {{ border-radius: 28px; border: 1px solid rgba(255,255,255,.12);
   background: rgba(255,255,255,.04); }}
 [class*="st-key-kx_"] [data-testid="stExpander"] summary p {{ font-weight: 700; }}
+/* the Material Symbols ligature font can fail to load (blocked/offline); hide the literal
+   "keyboard_arrow_right" text and draw a plain triangle instead so it never shows as text */
+[class*="st-key-kx_"] [data-testid="stExpander"] summary [data-testid="stIconMaterial"] {{
+  font-size: 0 !important; display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; transition: transform .2s {EASE}; }}
+[class*="st-key-kx_"] [data-testid="stExpander"] summary [data-testid="stIconMaterial"]::after {{
+  content: "▸"; font-size: 13px; color: rgba(255,255,255,.55); }}
+[class*="st-key-kx_"] [data-testid="stExpander"] details[open] summary [data-testid="stIconMaterial"] {{
+  transform: rotate(90deg); }}
 [class*="st-key-kx_"] [data-baseweb="input"], [class*="st-key-kx_"] [data-baseweb="base-input"] {{ border-radius: 999px !important; }}
 [class*="st-key-kx_"] [data-testid="stTabs"] [role="tab"] p {{ font-weight: 700; }}
 [class*="st-key-kx_"] [data-testid="stButtonGroup"] button {{ border-radius: 999px !important; }}
