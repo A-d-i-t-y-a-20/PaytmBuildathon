@@ -157,8 +157,8 @@ def _ask_dialog():
                         answer = assistant.ask(res["transcript"], lang=lang_code, facts=_assistant_facts()) or t("ask_fallback")
                         assistant.log(res["transcript"], answer, lang_code, "voice", shop_name())
                         st.session_state.ask_voice_answered = True
-                        K.speak(answer, lang_code=voice.normalize_lang(lang_code), autoplay=True, key="ask_voice_tts")
-                        st.rerun()
+                        if not K.speak(answer, lang_code=voice.normalize_lang(lang_code), autoplay=True, key="ask_voice_tts"):
+                            st.caption(t("ask_fallback"))
                     else:
                         st.caption(t("voice_fail"))
         else:
