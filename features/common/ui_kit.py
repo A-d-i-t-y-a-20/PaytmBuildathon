@@ -75,16 +75,10 @@ CSS = f"""
   background: linear-gradient(180deg, rgba(255,255,255,.07), transparent 45%); }}
 .kx-card > * {{ position: relative; }}
 
-/* ---------- sticker badges: gradient icon chips with shading, not emoji */
+/* ---------- AI reply avatar: a small gradient circle beside an assistant chat bubble */
 .kx-sticker {{ display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px;
-  border-radius: 12px; background: {GRAD}; flex-shrink: 0; vertical-align: middle; margin-right: 8px;
-  box-shadow: 0 6px 16px rgba(34,211,168,.35), inset 0 1px 0 rgba(255,255,255,.35); }}
-.kx-sticker svg {{ width: 18px; height: 18px; display: block; }}
-.kx-sticker.avatar {{ border-radius: 50%; background: linear-gradient(135deg, #38BDF8, #FFFFFF);
+  border-radius: 50%; background: linear-gradient(135deg, #38BDF8, #FFFFFF); flex-shrink: 0;
   box-shadow: 0 4px 14px rgba(56,189,248,.45), inset 0 1px 0 rgba(255,255,255,.5); }}
-.kx-sticker.lg {{ width: 44px; height: 44px; border-radius: 16px; }}
-.kx-sticker.lg svg {{ width: 24px; height: 24px; }}
-.kx-sticker-row {{ display: flex; align-items: center; gap: 10px; }}
 .kx-green {{ background: {GREEN_BG}; border-color: rgba(74,222,128,.3); }}
 .kx-amber {{ background: {AMBER_BG}; border-color: rgba(251,191,36,.3); }}
 .kx-grey  {{ background: {GREY_BG}; border-color: rgba(255,255,255,.08); }}
@@ -183,31 +177,9 @@ def inject_css():
     st.markdown(CSS, unsafe_allow_html=True)
 
 
-# ---------------------------------------------------------------- sticker badges (SVG + gradient, never emoji)
-_ICONS = {
-    # coin / savings (Gullak)
-    "coin": '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="#06150E" stroke-width="1.6"/>'
-            '<text x="12" y="16" text-anchor="middle" font-size="11" font-weight="800" fill="#06150E">₹</text></svg>',
-    # win-back / comeback (Wapas Aao): a circular return arrow
-    "return": ('<svg viewBox="0 0 24 24" fill="none" stroke="#06150E" stroke-width="1.8" stroke-linecap="round" '
-               'stroke-linejoin="round"><path d="M4 9a8 8 0 1 1 1.2 7.2"/><path d="M4 4v5h5"/></svg>'),
-    # chevron/arrow used for generic "open" affordances
-    "arrow": ('<svg viewBox="0 0 24 24" fill="none" stroke="#06150E" stroke-width="2" stroke-linecap="round" '
-              'stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>'),
-}
-
-
-def sticker(icon="coin", size="md"):
-    """A small gradient 'sticker' badge with real shading (shadow + inner highlight) -- an SVG
-    glyph, never an emoji. size: 'md' (default, 34px) or 'lg' (44px). Returns an HTML snippet;
-    embed it inline before a kicker/title string."""
-    cls = "kx-sticker lg" if size == "lg" else "kx-sticker"
-    return f'<span class="{cls}">{_ICONS.get(icon, _ICONS["coin"])}</span>'
-
-
 def avatar():
     """The small gradient avatar shown beside an AI/assistant reply bubble."""
-    return '<span class="kx-sticker avatar" style="margin-top:2px"></span>'
+    return '<span class="kx-sticker" style="margin-top:2px"></span>'
 
 
 def ai_say(text):
@@ -216,16 +188,13 @@ def ai_say(text):
                 f'<div class="kx-say" style="flex:1;min-width:0">{text}</div></div>', unsafe_allow_html=True)
 
 
-def header(title, subtitle, badge=None, extra_html="", icon=None):
+def header(title, subtitle, badge=None, extra_html=""):
     """Headline sits directly on the gradient page background -- no card box -- with a bold
-    condensed display font, matching a 'Hi Josh!' style app greeting. Pass icon='coin' / 'return'
-    for a gradient sticker badge beside the title (see sticker())."""
+    condensed display font, matching a 'Hi Josh!' style app greeting."""
     badge = badge or t("concept")
-    title_html = (f'<div class="kx-sticker-row">{sticker(icon, "lg")}<div class="kx-title" style="margin:10px 0 10px">{title}</div></div>'
-                  if icon else f'<div class="kx-title">{title}</div>')
     st.markdown(
         f'<div class="kx-hero"><span class="kx-badge">{badge}</span>'
-        f'{title_html}<div class="kx-sub">{subtitle}</div>{extra_html}</div>',
+        f'<div class="kx-title">{title}</div><div class="kx-sub">{subtitle}</div>{extra_html}</div>',
         unsafe_allow_html=True)
 
 

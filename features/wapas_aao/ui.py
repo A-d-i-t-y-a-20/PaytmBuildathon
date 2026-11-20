@@ -304,7 +304,7 @@ def render_page():
         if st.button("← " + t("tab_aaj"), key="wa_back_aaj"):
             st.session_state.nav = "aaj"
             st.rerun()
-        K.header(t("wa_title"), t("wa_sub"), icon="return")
+        K.header(t("wa_title"), t("wa_sub"))
         stage = st.session_state.get("wa_stage", "ask")
         {"ask": _ask, "finding": _finding, "proposal": _proposal_view, "running": _running, "result": _result}[stage]()
         _trust_panel()
@@ -321,7 +321,7 @@ def render_home_card():
     _data()
     pr = _proposal()
     with st.container(key="kx_card_wapas"):
-        kicker = f'<div class="kx-sticker-row">{K.sticker("return")}<div class="kx-kicker" style="margin:0">{t("hc_wa_kicker")}</div></div>'
+        kicker = f'<div class="kx-kicker">{t("hc_wa_kicker")}</div>'
         if st.session_state.get("wa_running"):
             K.card(f'{kicker}<div class="kx-mid">{t("hc_wa_running")}</div>'
                    f'<div class="kx-line">{_offer_text(pr["offer"])}</div>', "green")
