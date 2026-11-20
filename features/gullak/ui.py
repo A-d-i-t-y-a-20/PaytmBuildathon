@@ -240,7 +240,8 @@ def _balance_block(state):
         if st.button(t("btn_new_goal"), type="primary", width="stretch", key="gk_newgoal"):
             _go("goal")
         return
-    K.card(f'<div class="kx-kicker">{t("bal_kicker")}</div><div class="kx-big">₹{E.rs(bal)}</div>'
+    K.card(f'<div class="kx-sticker-row">{K.sticker("coin")}<div class="kx-kicker" style="margin:0">{t("bal_kicker")}</div></div>'
+           f'<div class="kx-big">₹{E.rs(bal)}</div>'
            f'<div class="kx-line">{_sahara(E.buffer_days(bal, _avg(state)))}</div>'
            f'<div class="kx-muted" style="margin-top:12px">'
            f'{t("goal_line", goal=_goal_name(state), pct=int(g["progress"] * 100), target=E.rs(state["goal"]["target"]))}</div>'
@@ -248,8 +249,8 @@ def _balance_block(state):
 
 
 # ---------------------------------------------------------------- analytics (dark card)
-INST_COLORS = {"gold": "#F5C451", "silver": "#C3CCDA", "fd": "#7FB2FF", "fund": "#F2C14E"}
-DARK = {"bg": "#1D1F3A", "panel": "#262A4D", "ink": "#F2F4F7", "muted": "#9AA3B2", "line": "#F2C14E"}
+INST_COLORS = {"gold": "#F5C451", "silver": "#C3CCDA", "fd": "#7FB2FF", "fund": "#22D3A8"}
+DARK = {"bg": "#0F2A1E", "panel": "#163D2A", "ink": "#F2F4F7", "muted": "#9AA3B2", "line": "#22D3A8"}
 
 
 def _inst_name(k):
@@ -526,7 +527,7 @@ def _voice(state):
         st.session_state.gk_reply = _do_command(state, c)
         st.rerun()
     if st.session_state.get("gk_reply"):
-        st.markdown(f'<div class="kx-say">{st.session_state.gk_reply}</div>', unsafe_allow_html=True)
+        K.ai_say(st.session_state.gk_reply)
         K.speak(st.session_state.gk_reply, key="gk_reply_tts")
 
 
@@ -607,7 +608,10 @@ def render_page():
     K.inject_css()
     state = get_state()
     with st.container(key="kx_page_gullak"):
-        K.header(t("gk_title"), t("gk_sub"))
+        if st.button("← " + t("tab_aaj"), key="gk_back_aaj"):
+            st.session_state.nav = "aaj"
+            st.rerun()
+        K.header(t("gk_title"), t("gk_sub"), icon="coin")
         if not state.get("opted_in"):
             _onboarding(state)
             _demo_controls(state)
@@ -669,8 +673,8 @@ def render_home_card():
     state = get_state()
     with st.container(key="kx_card_gullak"):
         if not state.get("opted_in"):
-            K.card(f'<div class="kx-kicker">{t("hc_gk_kicker")}</div><div class="kx-mid">{t("hc_gk_title")}</div>'
-                   f'<div class="kx-muted">{t("onb1_line")}</div>', "blue")
+            K.card(f'<div class="kx-sticker-row">{K.sticker("coin")}<div class="kx-kicker" style="margin:0">{t("hc_gk_kicker")}</div></div>'
+                   f'<div class="kx-mid">{t("hc_gk_title")}</div><div class="kx-muted">{t("onb1_line")}</div>', "blue")
             if st.button(t("btn_start"), key="gk_home_start", width="stretch"):
                 st.session_state.nav = NAV_KEY
                 st.rerun()
@@ -687,7 +691,8 @@ def render_home_card():
             chip = f'<span class="kx-chip amber">{t("chip_not_today", why=_why(e))}</span>'
         else:
             chip = f'<span class="kx-chip blue">{t("chip_pending")}</span>'
-        K.card(f'<div class="kx-kicker">{t("hc_gk_kicker")}</div><div class="kx-big">{t("hc_gk_saved", amt=E.rs(bal))}</div>'
+        K.card(f'<div class="kx-sticker-row">{K.sticker("coin")}<div class="kx-kicker" style="margin:0">{t("hc_gk_kicker")}</div></div>'
+               f'<div class="kx-big">{t("hc_gk_saved", amt=E.rs(bal))}</div>'
                f'<div class="kx-line">{_sahara(E.buffer_days(bal, _avg(state)))}</div>'
                f'<div class="kx-muted">{_goal_name(state)} {int(g["progress"] * 100)}%</div>{K.bar(g["progress"])}{chip}')
         if _bad_week_card(state, "gk_bw_btn_home"):

@@ -50,24 +50,25 @@ st.markdown(f"""
 <style>
 [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"], [data-testid="stHeader"],
 [data-testid="stToolbar"], footer, #MainMenu {{ display: none !important; }}
-.stApp {{ background: {K.VOID}; }}
+.stApp {{ background: radial-gradient(circle at 15% -10%, #1C4A33 0%, #0F2E1F 45%, #061309 100%) fixed; }}
 .block-container {{ max-width: {"1200px" if _console else "480px"} !important; padding: 0.6rem 1rem 8rem !important; }}
 [class*="st-key-kx_"] [data-testid="stHorizontalBlock"] {{ flex-wrap: nowrap !important; gap: 0.6rem !important; }}
 [class*="st-key-kx_"] [data-testid="stColumn"], [class*="st-key-kx_"] [data-testid="column"] {{ min-width: 0 !important; width: auto !important; flex: 1 1 0 !important; }}
-.gl-brand {{ font-family: Inter, sans-serif; font-size: 24px; font-weight: 900; color: {K.INK}; letter-spacing: -.03em; }}
+.gl-brand {{ font-family: 'Anton', 'Inter', sans-serif; font-size: 26px; font-weight: 400; color: {K.INK};
+  letter-spacing: -.01em; text-transform: uppercase; }}
 .gl-brand span {{ color: {K.SHOUT}; }}
-.gl-shop {{ font-size: 10px; color: rgba(26,26,46,.5); letter-spacing: .14em; text-transform: uppercase; margin-top: 2px; }}
+.gl-shop {{ font-size: 10px; color: rgba(255,255,255,.5); letter-spacing: .14em; text-transform: uppercase; margin-top: 2px; }}
 .st-key-kx_topbar {{ margin-bottom: 10px; }}
 .st-key-kx_topbar [data-testid="stHorizontalBlock"] {{ align-items: center; }}
 .st-key-kx_topbar [data-testid="stButtonGroup"] {{ justify-content: flex-end; display: flex; }}
 .st-key-kx_tabbar {{ position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); width: min(452px, calc(100% - 28px));
-  background: rgba(255,255,255,.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-  border: 1.5px solid rgba(26,26,46,.14); border-radius: 999px; padding: 6px; z-index: 1000; box-shadow: 0 16px 40px rgba(26,26,46,.18); }}
+  background: rgba(15,42,30,.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,.1); border-radius: 999px; padding: 6px; z-index: 1000; box-shadow: 0 16px 40px rgba(0,0,0,.4); }}
 .st-key-kx_tabbar .stButton button {{ min-height: 52px !important; border: 0 !important; background: transparent !important;
-  color: rgba(26,26,46,.55) !important; border-radius: 999px !important; padding: 4px 2px !important; white-space: pre-line; line-height: 1.2; }}
+  color: rgba(255,255,255,.55) !important; border-radius: 999px !important; padding: 4px 2px !important; white-space: pre-line; line-height: 1.2; }}
 .st-key-kx_tabbar .stButton button p {{ font-size: 13px !important; font-weight: 700 !important; overflow: visible !important; text-overflow: clip !important; }}
-.st-key-kx_tabbar .stButton button[kind="primary"] {{ background: {K.SHOUT} !important; }}
-.st-key-kx_tabbar .stButton button[kind="primary"] p {{ color: #FFFFFF !important; }}
+.st-key-kx_tabbar .stButton button[kind="primary"] {{ background: linear-gradient(135deg, {K.SHOUT}, {K.SHOUT_2}) !important; }}
+.st-key-kx_tabbar .stButton button[kind="primary"] p {{ color: #06150E !important; }}
 </style>
 """, unsafe_allow_html=True)
 K.inject_css()
